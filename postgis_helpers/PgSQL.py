@@ -46,10 +46,13 @@ class PostgreSQL():
     def uri(self,
             super_uri: bool = False) -> str:
 
+        # If super_uri is True, use the super un/pw/db
         if super_uri:
             user = self.SUPER_USER
             pw = self.SUPER_PASSWORD
             database = self.SUPER_DB
+
+        # Otherwise, use the normal connection info
         else:
             user = self.USER
             pw = self.PASSWORD
@@ -362,7 +365,7 @@ def execute(db: PostgreSQL,
     connection.close()
 
 
-def get_config(working_db):
+def get_config(working_db: str) -> dict:
 
     config_file = os.path.join(Path.home(), ".postgis_helpers")
 
