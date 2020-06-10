@@ -17,6 +17,39 @@ import urllib
 
 class PostgreSQL():
 
+    def _print(self,
+               level: int,
+               message: str):
+        """ Messages will print out depending on the VERBOSITY property
+            and the importance level provided.
+
+            VERBOSITY options include: ``full``, ``minimal``, and ``errors``
+
+            1 = Only prints in ``full``
+            2 = Prints in ``full`` and ``minimal``,
+                but does not print in ``errors``
+            3 = Always prints out
+
+
+        :param level: [description]
+        :type level: int
+        :param message: [description]
+        :type message: str
+        """
+
+        prefix = r"\\ pGIS \\ "
+
+        msg = prefix + message
+
+        if self.VERBOSITY == "full" and level in [1, 2, 3]:
+            print(msg)
+
+        elif self.VERBOSITY == "minimal" and level in [2, 3]:
+            print(msg)
+
+        elif self.VERBOSITY == "errors" and level in [3]:
+            print(msg)
+
     def __init__(self,
                  working_db: str,
                  un: str = "postgres",
@@ -66,7 +99,88 @@ class PostgreSQL():
 
         self.VERBOSITY = verbosity
 
-        _print(self, 1, f"Created an object for {self.DATABASE} @ {self.HOST}")
+        self._print(1, f"Created an object for {self.DATABASE} @ {self.HOST}")
+
+    # Query the database
+    # ------------------
+
+    def query_as_list(self,
+                      query: str,
+                      super_uri: bool = False) -> list:
+
+        uri = self.uri(super_uri=super_uri)
+
+        connection = psycopg2.connect(uri)
+
+        cursor = connection.cursor()
+
+        cursor.execute(query)
+
+        result = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        return result
+
+    def query_as_df(self,
+                    query: str,
+                    super_uri: bool = False) -> pd.DataFrame:
+
+        uri = self.uri(super_uri=super_uri)
+
+        engine = sqlalchemy.create_engine(uri)
+        df = pd.read_sql(query, engine)
+        engine.dispose()
+
+        return df
+
+    def query_as_geo_df(self,
+                        query: str,
+                        geom_col: str = "geom") -> gpd.GeoDataFrame:
+
+        connection = psycopg2.connect(self.uri())
+
+        gdf = gpd.GeoDataFrame.from_postgis(query, connection,
+                                            geom_col=geom_col)
+
+        connection.close()
+
+        return gdf
+
+    def query_single_item(self,
+                          query: str,
+                          super_uri: bool = False):
+
+        # For when you want to transform [(True,)] into True
+        result = self.query_as_list(query, super_uri=super_uri)
+
+        return result[0][0]
+
+    def execute(self,
+                query: str,
+                autocommit: bool = False):
+
+        uri = self.uri(super_uri=autocommit)
+
+        connection = psycopg2.connect(uri)
+
+        # Use autocommit when connecting to root db to make/delete other dbs
+        if autocommit:
+            connection.set_isolation_level(
+                psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
+            )
+
+        cursor = connection.cursor()
+
+        cursor.execute(query)
+
+        cursor.close()
+        connection.commit()
+        connection.close()
+
+    # Database-level helper functions
+    # -------------------------------
 
     def uri(self, super_uri: bool = False) -> str:
         """Create a connection string URI for this database.
@@ -111,7 +225,7 @@ class PostgreSQL():
                 WHERE lower(datname) = lower('{self.DATABASE}')
             );
         """
-        return query_item(self, sql_db_exists, super_uri=True)
+        return self.query_single_item(sql_db_exists, super_uri=True)
 
     def table_list(self) -> list:
         """Get a list of all tables in the database
@@ -126,7 +240,7 @@ class PostgreSQL():
             WHERE table_schema = 'public'
         """
 
-        tables = query_list(self, sql_all_tables)
+        tables = self.query_as_list(sql_all_tables)
 
         table_names = [t[0] for t in tables]
 
@@ -139,32 +253,32 @@ class PostgreSQL():
         """Create this database (if it doesn't exist yet)"""
 
         if self.exists():
-            _print(self, 1,
-                   f"Database {self.DATABASE} already exists")
+            self._print(1, f"Database {self.DATABASE} already exists")
         else:
-            _print(self, 3,
-                   f"Creating database: {self.DATABASE} on {self.HOST}")
+            self._print(3,
+                        f"Creating database: {self.DATABASE} on {self.HOST}")
 
             sql_make_db = f"CREATE DATABASE {self.DATABASE};"
 
-            execute(self, sql_make_db, autocommit=True)
+            self.execute(sql_make_db, autocommit=True)
 
             if "geometry_columns" in self.table_list():
-                _print(self, 1, "PostGIS comes pre-installed")
+                self._print(1, "PostGIS comes pre-installed")
             else:
-                _print(self, 1, "Installing PostGIS")
+                self._print(1, "Installing PostGIS")
+
                 sql_add_postgis = "CREATE EXTENSION postgis;"
-                execute(self, sql_add_postgis)
+                self.execute(sql_add_postgis)
 
     def delete(self) -> None:
         """Delete this database (if it exists)"""
 
         if not self.exists():
-            _print(self, 1, "This database does not exist, nothing to delete!")
+            self._print(1, "This database does not exist, nothing to delete!")
         else:
-            _print(self, 3, f"Deleting database! {self.DATABASE}")
+            self._print(3, f"Deleting database! {self.DATABASE}")
             sql_drop_db = f"DROP DATABASE {self.DATABASE};"
-            execute(self, sql_drop_db, autocommit=True)
+            self.execute(sql_drop_db, autocommit=True)
 
     def add_uid_column(self, table_name: str) -> None:
         """Add a serial primary key column named 'uid' to the table.
@@ -176,7 +290,7 @@ class PostgreSQL():
         sql_unique_id_column = f"""
             ALTER TABLE {table_name} DROP COLUMN IF EXISTS uid;
             ALTER TABLE {table_name} ADD uid serial PRIMARY KEY;"""
-        execute(self, sql_unique_id_column)
+        self.execute(sql_unique_id_column)
 
     def add_spatial_index(self, table_name: str) -> None:
         """Add a spatial index to the 'geom' column in the table.
@@ -190,7 +304,7 @@ class PostgreSQL():
             ON {table_name}
             USING GIST (geom);
         """
-        execute(self, sql_make_spatial_index)
+        self.execute(sql_make_spatial_index)
 
     def reproject_spatial_data(self,
                                table_name: str,
@@ -215,7 +329,7 @@ class PostgreSQL():
             ALTER COLUMN geom TYPE geometry({geom_type}, {new_epsg})
             USING ST_Transform( ST_SetSRID( geom, {old_epsg} ), {new_epsg} );
         """
-        execute(self, sql_transform_geom)
+        self.execute(sql_transform_geom)
 
     def import_dataframe(self,
                          dataframe: pd.DataFrame,
@@ -248,7 +362,7 @@ class PostgreSQL():
         dataframe.to_sql(table_name, engine, if_exists=if_exists)
         engine.dispose()
 
-        _print(self, 2, f"Imported dataframe to {table_name}")
+        self._print(2, f"Imported dataframe to {table_name}")
 
     def import_geodataframe(self,
                             gdf: gpd.GeoDataFrame,
@@ -328,7 +442,7 @@ class PostgreSQL():
                  csv_path: Union[Path, str],
                  if_exists: str = "append",
                  **csv_kwargs):
-        """Load a CSV into a dataframe, then save the df to SQL.
+        r"""Load a CSV into a dataframe, then save the df to SQL.
 
         :param table_name: Name of the table you want to create
         :type table_name: str
@@ -337,7 +451,7 @@ class PostgreSQL():
         :param if_exists: How to handle overwriting existing data,
                           defaults to "append"
         :type if_exists: str, optional
-        :param \\**csv_kwargs: any kwargs for ``pd.read_csv`` are valid here.
+        :param \**csv_kwargs: any kwargs for ``pd.read_csv()`` are valid here.
         """
 
         # Read the CSV with whatever kwargs were passed
@@ -361,7 +475,7 @@ class PostgreSQL():
         :type src_epsg: Union[int, bool], optional
         """
 
-        _print(self, 2, f"Loading geodata into {table_name}")
+        self._print(2, f"Loading geodata into {table_name}")
 
         # Read the data into a geodataframe
         gdf = gpd.read_file(data_path)
@@ -379,130 +493,49 @@ class PostgreSQL():
 # ######### - ########## - ########## - ##########
 
 
-def _print(db: PostgreSQL,
-           level: int,
-           message: str):
-    """
-        full = 1
-        minimal = 2
-        errors = 3
+starter_config_file = """
+[DEFAULT]
+pw = this-is-a-placeholder-password
+port = 5432
+super_db = postgres
+super_un = postgres
+super_pw = this-is-another-placeholder-password
+
+[localhost]
+host = localhost
+un = postgres
+pw = your-password-here
+
+[digitalocean]
+un = your-username-here
+host = your-host-here.db.ondigitalocean.com
+pw = your-password-here
+port = 98765
+sslmode = require
+super_db = your_default_db
+super_un = your_super_admin
+super_pw = some_super_password12354
+"""
 
 
-        1 = only prints in full
-        2 = does not print in errors
-        3 = always prints out
-    """
-
-    prefix = r"pGIS \\\ "
-
-    msg = prefix + message
-
-    if db.VERBOSITY == "full" and level in [1, 2, 3]:
-        print(msg)
-
-    elif db.VERBOSITY == "minimal" and level in [2, 3]:
-        print(msg)
-
-    elif db.VERBOSITY == "errors" and level in [3]:
-        print(msg)
-
-
-def query_df(db: PostgreSQL,
-             query: str,
-             super_uri: bool = False) -> pd.DataFrame:
-
-    uri = db.uri(super_uri=super_uri)
-
-    engine = sqlalchemy.create_engine(uri)
-    df = pd.read_sql(query, engine)
-    engine.dispose()
-
-    return df
-
-
-def query_geo_df(db: PostgreSQL,
-                 query: str,
-                 geom_col: str = "geom"):
-
-    connection = psycopg2.connect(db.uri())
-
-    gdf = gpd.GeoDataFrame.from_postgis(query, connection, geom_col=geom_col)
-
-    connection.close()
-
-    return gdf
-
-
-def query_list(db: PostgreSQL,
-               query: str,
-               super_uri: bool = False) -> list:
-
-    uri = db.uri(super_uri=super_uri)
-
-    connection = psycopg2.connect(uri)
-    cursor = connection.cursor()
-
-    cursor.execute(query)
-    result = cursor.fetchall()
-
-    cursor.close()
-    connection.close()
-
-    return result
-
-
-def query_item(db: PostgreSQL,
-               query: str,
-               super_uri: bool = False):
-
-    # For when you want to transform [(True,)] into True
-    result = query_list(db, query, super_uri=super_uri)
-
-    return result[0][0]
-
-
-def execute(db: PostgreSQL,
-            query: str,
-            autocommit: bool = False):
-
-    uri = db.uri(super_uri=autocommit)
-
-    connection = psycopg2.connect(uri)
-
-    # Use autocommit when connecting to root db to make/delete other dbs
-    if autocommit:
-        connection.set_isolation_level(
-            psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
-        )
-
-    cursor = connection.cursor()
-
-    cursor.execute(query)
-
-    cursor.close()
-    connection.commit()
-    connection.close()
-
-
-def get_config(working_db: str) -> dict:
+def get_config(working_db: str,
+               verbosity: str = "minimal") -> dict:
 
     config_file = os.path.join(Path.home(), ".postgis_helpers")
 
     print(config_file)
     if not os.path.exists(config_file):
-        config_url = "https://raw.githubusercontent.com/aaronfraint/postGIS-tools/master/config-sample.txt"
-        urllib.request.urlretrieve(config_url, config_file)
+        print(f"Writing default config file to {config_file}")
+        with open(config_file, "w") as open_file:
+            open_file.write(starter_config_file)
+        # config_url = "https://raw.githubusercontent.com/aaronfraint/postGIS-tools/master/config-sample.txt"
+        # urllib.request.urlretrieve(config_url, config_file)
 
     # Parse the config.txt
-    config_object = configparser.ConfigParser()
-    config_object.read(config_file)
+    config = configparser.ConfigParser()
+    config.read(config_file)
 
-    connection_details = {}
-    options = {}
-
-    for host in config_object.sections():
-        connection_details[host] = {key: config_object[host][key]
-                                    for key in config_object[host]}
-        options[host] = PostgreSQL(working_db, **connection_details[host])
-
-    return options
+    return {host: PostgreSQL(working_db,
+                             verbosity=verbosity,
+                             **config[host])
+            for host in config.sections()}
