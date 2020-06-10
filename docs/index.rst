@@ -7,9 +7,10 @@ Welcome to postgis-helpers's documentation!
 ===========================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
+   modules.rst
 
 
 Indices and tables

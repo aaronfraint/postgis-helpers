@@ -1,4 +1,4 @@
-postgis-helpers
+postgis_helpers
 ===============
 
 .. toctree::

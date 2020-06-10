@@ -1,8 +1,10 @@
 """
 Wrap up PostgreSQL and PostGIS into a convenient class.
 
-Example
--------
+Examples
+--------
+
+Create a database and import a shapefile:
 
     >>> import postgis_helpers as pGIS
     >>> db = pGIS.PostgreSQL("my_database_name")
@@ -28,6 +30,16 @@ from .sql_helpers import sql_hex_grid_function_definition
 
 
 class PostgreSQL():
+    """This class encapsulates interactions with a ``PostgreSQL``
+    database. It leverages ``psycopg2``, ``sqlalchemy``, and ``geoalchemy2``
+    as needed. It stores connection information that includes:
+        - database name
+        - username & password
+        - host & port
+        - superusername & password
+        - the SQL cluster's master database
+        - ``verbosity`` level, which controls how much gets printed out
+    """
 
     def __init__(self,
                  working_db: str,

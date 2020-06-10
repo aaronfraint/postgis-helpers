@@ -1,5 +1,4 @@
-"""
-You may have lots of SQL database connections. 
+""" You may have lots of SQL database connections.
 Or maybe you just want to keep your database
 connection information out of your analysis
 code. This module provides a method for storing
