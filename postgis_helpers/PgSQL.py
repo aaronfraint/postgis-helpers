@@ -21,6 +21,8 @@ from geoalchemy2 import Geometry, WKTElement
 from typing import Union
 from pathlib import Path
 
+from .sql_helpers import sql_hex_grid_function_definition
+
 
 class PostgreSQL():
 
@@ -279,7 +281,45 @@ class PostgreSQL():
         """
         return self.query_single_item(sql_db_exists, super_uri=True)
 
-    def table_list(self) -> list:
+    def create(self) -> None:
+        """Create this database (if it doesn't exist yet)"""
+
+        if self.exists():
+            self._print(1, f"Database {self.DATABASE} already exists")
+        else:
+            self._print(3,
+                        f"Creating database: {self.DATABASE} on {self.HOST}")
+
+            sql_make_db = f"CREATE DATABASE {self.DATABASE};"
+
+            self.execute(sql_make_db, autocommit=True)
+
+            # Add PostGIS if not already installed
+            if "geometry_columns" in self.table_list():
+                self._print(1, "PostGIS comes pre-installed")
+            else:
+                self._print(1, "Installing PostGIS")
+
+                sql_add_postgis = "CREATE EXTENSION postgis;"
+                self.execute(sql_add_postgis)
+
+            # Load the custom Hexagon Grid function
+            self.execute(sql_hex_grid_function_definition)
+
+    def delete(self) -> None:
+        """Delete this database (if it exists)"""
+
+        if not self.exists():
+            self._print(1, "This database does not exist, nothing to delete!")
+        else:
+            self._print(3, f"Deleting database! {self.DATABASE}")
+            sql_drop_db = f"DROP DATABASE {self.DATABASE};"
+            self.execute(sql_drop_db, autocommit=True)
+
+    # Get lists of things inside this database (or the cluster at large)
+    # ------------------------------------------------------------------
+
+    def all_tables_as_list(self) -> list:
         """Get a list of all tables in the database
 
         :return: List of tables in the database
@@ -294,48 +334,96 @@ class PostgreSQL():
 
         tables = self.query_as_list(sql_all_tables)
 
-        table_names = [t[0] for t in tables]
+        return [t[0] for t in tables]
 
-        return table_names
+    def all_spatial_tables_as_dict(self) -> dict:
+        """Get a dictionary of all spatial tables in the database.
+           Return value is formatted as:
+                ``{table_name: epsg}``
 
-    def create(self) -> None:
-        """Create this database (if it doesn't exist yet)"""
+        :return: Dictionary with spatial table names as keys
+                 and EPSG codes as values.
+        :rtype: dict
+        """
 
-        if self.exists():
-            self._print(1, f"Database {self.DATABASE} already exists")
-        else:
-            self._print(3,
-                        f"Creating database: {self.DATABASE} on {self.HOST}")
+        sql_all_spatial_tables = """
+            SELECT f_table_name AS tblname, srid
+            FROM geometry_columns;
+        """
 
-            sql_make_db = f"CREATE DATABASE {self.DATABASE};"
+        spatial_tables = self.query_as_list(sql_all_spatial_tables)
 
-            self.execute(sql_make_db, autocommit=True)
+        return {t[0]: t[1] for t in spatial_tables}
 
-            if "geometry_columns" in self.table_list():
-                self._print(1, "PostGIS comes pre-installed")
-            else:
-                self._print(1, "Installing PostGIS")
+    def all_databases_on_cluster_as_list(self) -> list:
+        """Get a list of all databases on this SQL cluster.
 
-                sql_add_postgis = "CREATE EXTENSION postgis;"
-                self.execute(sql_add_postgis)
+        :return: List of all databases in the cluster
+        :rtype: list
+        """
 
-    def delete(self) -> None:
-        """Delete this database (if it exists)"""
+        sql_all_databases = f"""
+            SELECT datname FROM pg_database
+            WHERE datistemplate = false
+                AND datname != '{self.SUPER_DB}';
+        """
 
-        if not self.exists():
-            self._print(1, "This database does not exist, nothing to delete!")
-        else:
-            self._print(3, f"Deleting database! {self.DATABASE}")
-            sql_drop_db = f"DROP DATABASE {self.DATABASE};"
-            self.execute(sql_drop_db, autocommit=True)
+        database_list = self.query_as_list(sql_all_databases)
+
+        return [d[0] for d in database_list]
 
     # Table-level helper functions
     # ----------------------------
 
-    def column_list(self, table_name: str) -> list:
-        pass
+    def table_columns_as_list(self, table_name: str) -> list:
+        """Get a list of all columns in a table.
 
-    def add_uid_column(self, table_name: str) -> None:
+        :param table_name: Name of the table
+        :type table_name: str
+        :return: List of all columns in a table
+        :rtype: list
+        """
+
+        sql_all_cols_in_table = f"""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+                AND table_name = '{table_name}';
+        """
+
+        column_list = self.query_as_list(sql_all_cols_in_table)
+
+        column_names = [c[0] for c in column_list]
+
+        return column_names
+
+    def table_add_or_nullify_column(self,
+                                    table_name: str,
+                                    column_name: str,
+                                    column_type: str) -> None:
+        """Add a new column to a table. Overwrite to ``NULL`` if it already exists.
+
+        :param table_name: Name of the table
+        :type table_name: str
+        :param column_name: Name of the new column
+        :type column_name: str
+        :param column_type: Data type of the column. Must be valid in PgSQL
+        :type column_type: str
+        """
+
+        existing_columns = self.table_columns_as_list(table_name)
+
+        if column_name in existing_columns:
+            query = f"UPDATE {table_name} SET {column_name} = NULL;"
+        else:
+            query = f"""
+                ALTER TABLE {table_name}
+                ADD COLUMN {column_name} {column_type};
+            """
+
+        self.execute(query)
+
+    def table_add_uid_column(self, table_name: str) -> None:
         """Add a serial primary key column named 'uid' to the table.
 
         :param table_name: Name of the table to add a uid column to
@@ -347,7 +435,7 @@ class PostgreSQL():
             ALTER TABLE {table_name} ADD uid serial PRIMARY KEY;"""
         self.execute(sql_unique_id_column)
 
-    def add_spatial_index(self, table_name: str) -> None:
+    def table_add_spatial_index(self, table_name: str) -> None:
         """Add a spatial index to the 'geom' column in the table.
 
         :param table_name: Name of the table to make the index on
@@ -361,11 +449,11 @@ class PostgreSQL():
         """
         self.execute(sql_make_spatial_index)
 
-    def reproject_spatial_data(self,
-                               table_name: str,
-                               old_epsg: Union[int, str],
-                               new_epsg: Union[int, str],
-                               geom_type: str) -> None:
+    def table_reproject_spatial_data(self,
+                                     table_name: str,
+                                     old_epsg: Union[int, str],
+                                     new_epsg: Union[int, str],
+                                     geom_type: str) -> None:
         """Transform spatial data from one EPSG into another EPSG.
 
         :param table_name: name of the table
@@ -385,6 +473,16 @@ class PostgreSQL():
             USING ST_Transform( ST_SetSRID( geom, {old_epsg} ), {new_epsg} );
         """
         self.execute(sql_transform_geom)
+
+    def table_delete(self, table_name: str) -> None:
+        """Delete the table, cascade.
+
+        :param table_name: Name of the table you want to delete.
+        :type table_name: str
+        """
+
+        sql_drop_table = f"DROP TABLE {table_name} CASCADE;"
+        self.execute(sql_drop_table)
 
     # Data import functions
     # ---------------------
@@ -495,11 +593,11 @@ class PostgreSQL():
         self.add_uid_column(table_name)
         self.add_spatial_index(table_name)
 
-    def load_csv(self,
-                 table_name: str,
-                 csv_path: Union[Path, str],
-                 if_exists: str = "append",
-                 **csv_kwargs):
+    def import_csv(self,
+                   table_name: str,
+                   csv_path: Union[Path, str],
+                   if_exists: str = "append",
+                   **csv_kwargs):
         r"""Load a CSV into a dataframe, then save the df to SQL.
 
         :param table_name: Name of the table you want to create
@@ -517,10 +615,10 @@ class PostgreSQL():
 
         self.import_dataframe(df, table_name, if_exists=if_exists)
 
-    def load_geodata(self,
-                     table_name: str,
-                     data_path: Union[Path, str],
-                     src_epsg: Union[int, bool] = False):
+    def import_geodata(self,
+                       table_name: str,
+                       data_path: Union[Path, str],
+                       src_epsg: Union[int, bool] = False):
         """Load geographic data into a geodataframe, then save to SQL.
 
         :param table_name: Name of the table you want to create
@@ -547,3 +645,92 @@ class PostgreSQL():
         gdf = gdf.reset_index()
 
         self.import_geodataframe(gdf, table_name, src_epsg=src_epsg)
+
+    # Data creation functions
+    # -----------------------
+
+    def make_geotable_from_query(self,
+                                 query: str,
+                                 new_table_name: str,
+                                 geom_type: str) -> None:
+
+        valid_geom_types = ["POINT", "MULTIPOINT",
+                            "POLYGON", "MULTIPOLYGON",
+                            "LINESTRING", "MULTILINESTRING"]
+
+        if geom_type not in valid_geom_types:
+            for msg in [
+                f"Geometry type of {geom_type} is not valid.",
+                f"Please use one of the following: {valid_geom_types}",
+                "Aborting"
+            ]:
+                self._print(3, msg)
+            return
+
+        sql_make_table_from_query = f"""
+            DROP TABLE IF EXISTS {new_table_name};
+            CREATE TABLE {new_table_name} AS
+            {query}
+        """
+
+        self.execute(sql_make_table_from_query)
+
+        self.table_add_uid_column(new_table_name)
+        self.table_add_spatial_index(new_table_name)
+
+        # TODO: do we need to "register" this spatial data??? Probably
+        # self.table_reproject_spatial_data(new_table_name)
+
+    def make_hexagon_overlay(self,
+                             new_table_name: str,
+                             table_to_cover: str,
+                             desired_epsg: int,
+                             hexagon_size: float,
+                             ) -> None:
+        """Create a new spatial hexagon grid covering another
+           spatial table. EPSG must be specified for the hexagons,
+           as well as the size in square KM.
+
+        :param new_table_name: Name of the new table to create
+        :type new_table_name: str
+        :param table_to_cover: Name of the existing table you want to cover
+        :type table_to_cover: str
+        :param desired_epsg: integer for EPSG you want the hexagons to be in
+        :type desired_epsg: int
+        :param hexagon_size: Size of the hexagons, 1 = 1 square KM
+        :type hexagon_size: float
+        """
+
+        sql_create_hex_grid = f"""
+
+            DROP TABLE IF EXISTS {new_table_name};
+
+            CREATE TABLE {new_table_name} (
+                gid SERIAL NOT NULL PRIMARY KEY,
+                geom GEOMETRY('POLYGON', {desired_epsg}, 2) NOT NULL
+            )
+            WITH (OIDS=FALSE);
+
+            INSERT INTO {new_table_name} (geom)
+            SELECT
+                hex_grid(
+                    {hexagon_size},
+                    (select st_xmin(st_transform(st_collect(geom), 4326))
+                     from {table_to_cover}),
+                    (select st_ymin(st_transform(st_collect(geom), 4326))
+                     from {table_to_cover}),
+                    (select st_xmax(st_transform(st_collect(geom), 4326))
+                     from {table_to_cover}),
+                    (select st_ymax(st_transform(st_collect(geom), 4326))
+                     from {table_to_cover}),
+                    4326,
+                    {desired_epsg},
+                    {desired_epsg}
+            );
+        """
+
+        self.execute(sql_create_hex_grid)
+
+        self.table_add_spatial_index(new_table_name)
+
+        # TODO: reproject?
