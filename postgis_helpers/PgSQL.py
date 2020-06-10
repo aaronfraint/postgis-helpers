@@ -525,13 +525,12 @@ def get_config(working_db: str,
 
     print(config_file)
     if not os.path.exists(config_file):
+        print("Config file does not yet exist")
         print(f"Writing default config file to {config_file}")
         with open(config_file, "w") as open_file:
             open_file.write(starter_config_file)
-        # config_url = "https://raw.githubusercontent.com/aaronfraint/postGIS-tools/master/config-sample.txt"
-        # urllib.request.urlretrieve(config_url, config_file)
 
-    # Parse the config.txt
+    # Parse the config file saved to /Users/yourname/.postgis_helpers
     config = configparser.ConfigParser()
     config.read(config_file)
 
