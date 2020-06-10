@@ -645,7 +645,8 @@ class PostgreSQL():
     def import_geodata(self,
                        table_name: str,
                        data_path: Union[Path, str],
-                       src_epsg: Union[int, bool] = False):
+                       src_epsg: Union[int, bool] = False,
+                       if_exists: str = "fail"):
         """Load geographic data into a geodataframe, then save to SQL.
 
         :param table_name: Name of the table you want to create
@@ -656,6 +657,9 @@ class PostgreSQL():
         :param src_epsg: Manually declare the source EPSG if needed,
                          defaults to False
         :type src_epsg: Union[int, bool], optional
+        :param if_exists: pandas argument to handle overwriting data,
+                          defaults to "replace"
+        :type if_exists: str, optional
         """
 
         self._print(2, f"Loading geodata into {table_name}")
@@ -671,7 +675,10 @@ class PostgreSQL():
         gdf['explode'] = gdf.index
         gdf = gdf.reset_index()
 
-        self.import_geodataframe(gdf, table_name, src_epsg=src_epsg)
+        self.import_geodataframe(gdf,
+                                 table_name,
+                                 src_epsg=src_epsg,
+                                 if_exists=if_exists)
 
     # CREATE data within the database
     # -------------------------------
