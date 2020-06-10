@@ -1,54 +1,28 @@
 """
-Wrap up PostgreSQL
+Wrap up PostgreSQL and PostGIS into a convenient class.
+
+Example
+-------
+
+    >>> import postgis_helpers as pGIS
+    >>> db = pGIS.PostgreSQL("my_database_name")
+    >>> db.create()
+    >>> db.load_geodata("bike_lanes", "http://url.to.shapefile")
+    >>> bike_gdf = db.query_as_geo_df("select * from bike_lanes")
 
 """
 import pandas as pd
-import sqlalchemy
-import psycopg2
-from typing import Union
-
 import geopandas as gpd
+
+import psycopg2
+import sqlalchemy
 from geoalchemy2 import Geometry, WKTElement
-import configparser
+
+from typing import Union
 from pathlib import Path
-import os
-import urllib
 
 
 class PostgreSQL():
-
-    def _print(self,
-               level: int,
-               message: str):
-        """ Messages will print out depending on the VERBOSITY property
-            and the importance level provided.
-
-            VERBOSITY options include: ``full``, ``minimal``, and ``errors``
-
-            1 = Only prints in ``full``
-            2 = Prints in ``full`` and ``minimal``,
-                but does not print in ``errors``
-            3 = Always prints out
-
-
-        :param level: [description]
-        :type level: int
-        :param message: [description]
-        :type message: str
-        """
-
-        prefix = r"\\ pGIS \\ "
-
-        msg = prefix + message
-
-        if self.VERBOSITY == "full" and level in [1, 2, 3]:
-            print(msg)
-
-        elif self.VERBOSITY == "minimal" and level in [2, 3]:
-            print(msg)
-
-        elif self.VERBOSITY == "errors" and level in [3]:
-            print(msg)
 
     def __init__(self,
                  working_db: str,
@@ -101,12 +75,55 @@ class PostgreSQL():
 
         self._print(1, f"Created an object for {self.DATABASE} @ {self.HOST}")
 
+    def _print(self,
+               level: int,
+               message: str):
+        """ Messages will print out depending on the VERBOSITY property
+            and the importance level provided.
+
+            VERBOSITY options include: ``full``, ``minimal``, and ``errors``
+
+            1 = Only prints in ``full``
+            2 = Prints in ``full`` and ``minimal``,
+                but does not print in ``errors``
+            3 = Always prints out
+
+
+        :param level: [description]
+        :type level: int
+        :param message: [description]
+        :type message: str
+        """
+
+        prefix = r"\\ pGIS \\ "
+
+        msg = prefix + message
+
+        if self.VERBOSITY == "full" and level in [1, 2, 3]:
+            print(msg)
+
+        elif self.VERBOSITY == "minimal" and level in [2, 3]:
+            print(msg)
+
+        elif self.VERBOSITY == "errors" and level in [3]:
+            print(msg)
+
     # Query the database
     # ------------------
 
     def query_as_list(self,
                       query: str,
                       super_uri: bool = False) -> list:
+        """Query the database and get the result as a LIST
+
+        :param query: any valid SQL query string
+        :type query: str
+        :param super_uri: flag that will execute against the
+                          super db/user, defaults to False
+        :type super_uri: bool, optional
+        :return: list with each item being a row from the query result
+        :rtype: list
+        """
 
         uri = self.uri(super_uri=super_uri)
 
@@ -126,7 +143,16 @@ class PostgreSQL():
     def query_as_df(self,
                     query: str,
                     super_uri: bool = False) -> pd.DataFrame:
+        """Query the database and get the result as a ``pandas.DataFrame``
 
+        :param query: any valid SQL query string
+        :type query: str
+        :param super_uri: flag that will execute against the
+                          super db/user, defaults to False
+        :type super_uri: bool, optional
+        :return: dataframe with the query result
+        :rtype: pd.DataFrame
+        """
         uri = self.uri(super_uri=super_uri)
 
         engine = sqlalchemy.create_engine(uri)
@@ -138,7 +164,16 @@ class PostgreSQL():
     def query_as_geo_df(self,
                         query: str,
                         geom_col: str = "geom") -> gpd.GeoDataFrame:
+        """Query the database and get the result as a ``geopandas.GeoDataFrame``
 
+        :param query: any valid SQL query string
+        :type query: str
+        :param super_uri: flag that will execute against the
+                          super db/user, defaults to False
+        :type super_uri: bool, optional
+        :return: geodataframe with the query result
+        :rtype: gpd.GeoDataFrame
+        """
         connection = psycopg2.connect(self.uri())
 
         gdf = gpd.GeoDataFrame.from_postgis(query, connection,
@@ -151,8 +186,18 @@ class PostgreSQL():
     def query_single_item(self,
                           query: str,
                           super_uri: bool = False):
+        """Query the database and get the result as a SINGLETON.
+           For when you want to transform ``[(True,)]`` into ``True``
 
-        # For when you want to transform [(True,)] into True
+        :param query: any valid SQL query string
+        :type query: str
+        :param super_uri: flag that will execute against the
+                          super db/user, defaults to False
+        :type super_uri: bool, optional
+        :return: result from the query
+        :rtype: singleton
+        """
+
         result = self.query_as_list(query, super_uri=super_uri)
 
         return result[0][0]
@@ -160,12 +205,19 @@ class PostgreSQL():
     def execute(self,
                 query: str,
                 autocommit: bool = False):
+        """Execute a query for a persistent result in the database.
+           Use ``autocommit=True`` when creating and deleting databases.
+
+        :param query: any valid SQL query string
+        :type query: str
+        :param autocommit: flag that will execute against the
+                           super db/user, defaults to False
+        :type autocommit: bool, optional
+        """
 
         uri = self.uri(super_uri=autocommit)
 
         connection = psycopg2.connect(uri)
-
-        # Use autocommit when connecting to root db to make/delete other dbs
         if autocommit:
             connection.set_isolation_level(
                 psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
@@ -246,9 +298,6 @@ class PostgreSQL():
 
         return table_names
 
-    def column_list(self, table_name: str) -> list:
-        pass
-
     def create(self) -> None:
         """Create this database (if it doesn't exist yet)"""
 
@@ -279,6 +328,12 @@ class PostgreSQL():
             self._print(3, f"Deleting database! {self.DATABASE}")
             sql_drop_db = f"DROP DATABASE {self.DATABASE};"
             self.execute(sql_drop_db, autocommit=True)
+
+    # Table-level helper functions
+    # ----------------------------
+
+    def column_list(self, table_name: str) -> list:
+        pass
 
     def add_uid_column(self, table_name: str) -> None:
         """Add a serial primary key column named 'uid' to the table.
@@ -330,6 +385,9 @@ class PostgreSQL():
             USING ST_Transform( ST_SetSRID( geom, {old_epsg} ), {new_epsg} );
         """
         self.execute(sql_transform_geom)
+
+    # Data import functions
+    # ---------------------
 
     def import_dataframe(self,
                          dataframe: pd.DataFrame,
@@ -449,7 +507,7 @@ class PostgreSQL():
         :param csv_path: Path to data. Anything accepted by Pandas works here.
         :type csv_path: Union[Path, str]
         :param if_exists: How to handle overwriting existing data,
-                          defaults to "append"
+                          defaults to ``"append"``
         :type if_exists: str, optional
         :param \**csv_kwargs: any kwargs for ``pd.read_csv()`` are valid here.
         """
@@ -489,52 +547,3 @@ class PostgreSQL():
         gdf = gdf.reset_index()
 
         self.import_geodataframe(gdf, table_name, src_epsg=src_epsg)
-
-# ######### - ########## - ########## - ##########
-
-
-starter_config_file = """
-[DEFAULT]
-pw = this-is-a-placeholder-password
-port = 5432
-super_db = postgres
-super_un = postgres
-super_pw = this-is-another-placeholder-password
-
-[localhost]
-host = localhost
-un = postgres
-pw = your-password-here
-
-[digitalocean]
-un = your-username-here
-host = your-host-here.db.ondigitalocean.com
-pw = your-password-here
-port = 98765
-sslmode = require
-super_db = your_default_db
-super_un = your_super_admin
-super_pw = some_super_password12354
-"""
-
-
-def get_config(working_db: str,
-               verbosity: str = "minimal") -> dict:
-
-    config_file = os.path.join(Path.home(), ".postgis_helpers")
-
-    print(config_file)
-    if not os.path.exists(config_file):
-        print("Config file does not yet exist")
-        print(f"Writing default config file to {config_file}")
-        with open(config_file, "w") as open_file:
-            open_file.write(starter_config_file)
-
-    # Parse the config file saved to /Users/yourname/.postgis_helpers
-    config = configparser.ConfigParser()
-    config.read(config_file)
-
-    return {host: PostgreSQL(working_db,
-                             verbosity=verbosity,
-                             **config[host])
-            for host in config.sections()}
