@@ -100,7 +100,7 @@ class PostgreSQL():
         :type message: str
         """
 
-        prefix = r"\\ pGIS \\ "
+        prefix = r"pGIS |--> "
 
         msg = prefix + message
 
@@ -113,7 +113,7 @@ class PostgreSQL():
         elif self.VERBOSITY == "errors" and level in [3]:
             print(msg)
 
-    # Query the database
+    # QUERY the database
     # ------------------
 
     def query_as_list(self,
@@ -236,7 +236,7 @@ class PostgreSQL():
         connection.commit()
         connection.close()
 
-    # Database-level helper functions
+    # DATABASE-level helper functions
     # -------------------------------
 
     def uri(self, super_uri: bool = False) -> str:
@@ -298,7 +298,7 @@ class PostgreSQL():
             self.execute(sql_make_db, autocommit=True)
 
             # Add PostGIS if not already installed
-            if "geometry_columns" in self.table_list():
+            if "geometry_columns" in self.all_tables_as_list():
                 self._print(1, "PostGIS comes pre-installed")
             else:
                 self._print(1, "Installing PostGIS")
@@ -307,6 +307,7 @@ class PostgreSQL():
                 self.execute(sql_add_postgis)
 
             # Load the custom Hexagon Grid function
+            self._print(1, "Installing custom hexagon grid function")
             self.execute(sql_hex_grid_function_definition)
 
     def delete(self) -> None:
@@ -338,8 +339,8 @@ class PostgreSQL():
             system_command = f'psql "{self.uri()}" <  "{sql_dump_filepath}"'
             os.system(system_command)
 
-    # Get lists of things inside this database (or the cluster at large)
-    # ------------------------------------------------------------------
+    # LISTS of things inside this database (or the cluster at large)
+    # --------------------------------------------------------------
 
     def all_tables_as_list(self) -> list:
         """Get a list of all tables in the database
@@ -394,7 +395,7 @@ class PostgreSQL():
 
         return [d[0] for d in database_list]
 
-    # Table-level helper functions
+    # TABLE-level helper functions
     # ----------------------------
 
     def table_columns_as_list(self, table_name: str) -> list:
@@ -506,8 +507,8 @@ class PostgreSQL():
         sql_drop_table = f"DROP TABLE {table_name} CASCADE;"
         self.execute(sql_drop_table)
 
-    # Data import functions
-    # ---------------------
+    # IMPORT data into the database
+    # -----------------------------
 
     def import_dataframe(self,
                          dataframe: pd.DataFrame,
@@ -545,7 +546,8 @@ class PostgreSQL():
     def import_geodataframe(self,
                             gdf: gpd.GeoDataFrame,
                             table_name: str,
-                            src_epsg: Union[int, bool] = False):
+                            src_epsg: Union[int, bool] = False,
+                            if_exists: str = "replace"):
         """Import an in-memory Geopands geodataframe to the SQL database.
 
         :param gdf: geodataframe with data you want to save
@@ -558,6 +560,9 @@ class PostgreSQL():
                          requires that you explicitly declare its projection.
                          Defaults to False
         :type src_epsg: Union[int, bool], optional
+        :param if_exists: pandas argument to handle overwriting data,
+                          defaults to "replace"
+        :type if_exists: str, optional
         """
 
         # Read the geometry type. It's possible there are
@@ -608,7 +613,7 @@ class PostgreSQL():
         # Write geodataframe to SQL database
         engine = sqlalchemy.create_engine(self.uri())
         gdf.to_sql(table_name, engine,
-                   if_exists='replace', index=True, index_label='gid',
+                   if_exists=if_exists, index=True, index_label='gid',
                    dtype={'geom': Geometry(geom_typ, srid=epsg_code)})
         engine.dispose()
 
@@ -668,8 +673,8 @@ class PostgreSQL():
 
         self.import_geodataframe(gdf, table_name, src_epsg=src_epsg)
 
-    # Data creation functions
-    # -----------------------
+    # CREATE data within the database
+    # -------------------------------
 
     def make_geotable_from_query(self,
                                  query: str,
@@ -757,8 +762,8 @@ class PostgreSQL():
 
         # TODO: reproject?
 
-    # Data EXPORT functions
-    # ---------------------
+    # EXPORT data to file / disk
+    # --------------------------
 
     def export_shapefile(self,
                          table_name: str,
@@ -831,3 +836,29 @@ class PostgreSQL():
         os.system(system_call)
 
         return sql_file
+
+    # TRANSFER data to another database
+    # ---------------------------------
+
+    def transfer_data_to_another_db(self,
+                                    table_name: str,
+                                    other_postgresql_db) -> None:
+        """Copy data from one SQL database to another.
+
+        :param table_name: Name of the table to copy
+        :type table_name: str
+        :param other_postgresql_db: ``PostgreSQL()`` object for target database
+        :type other_postgresql_db: PostgreSQL
+        """
+
+        query = f"SELECT * FROM {table_name}"
+
+        # If the data is spatial use a geodataframe
+        if table_name in self.all_spatial_tables_as_dict():
+            gdf = self.query_as_geo_df(query)
+            other_postgresql_db.import_geodataframe(gdf, table_name)
+
+        # Otherwise use a normal dataframe
+        else:
+            df = self.query_as_df(query)
+            other_postgresql_db.import_dataframe(df, table_name)
