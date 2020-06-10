@@ -1,2 +1,2 @@
-from .PgSQL import *
-from .config_helpers import *
+from .PgSQL import PostgreSQL
+from .config_helpers import get_config
