@@ -43,7 +43,7 @@ def get_config(working_db: str,
 
     config_file = os.path.join(Path.home(), ".postgis_helpers")
 
-    print(config_file)
+    print(f"Loading {config_file}")
     if not os.path.exists(config_file):
         print("Config file does not yet exist")
         print(f"Writing default config file to {config_file}")
