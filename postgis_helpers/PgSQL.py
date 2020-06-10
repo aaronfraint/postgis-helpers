@@ -617,8 +617,8 @@ class PostgreSQL():
                    dtype={'geom': Geometry(geom_typ, srid=epsg_code)})
         engine.dispose()
 
-        self.add_uid_column(table_name)
-        self.add_spatial_index(table_name)
+        self.table_add_uid_column(table_name)
+        self.table_add_spatial_index(table_name)
 
     def import_csv(self,
                    table_name: str,
