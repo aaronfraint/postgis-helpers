@@ -28,6 +28,31 @@ class PostgreSQL():
                  super_un: str = "postgres",
                  super_pw: str = "password2",
                  verbosity: str = "full"):
+        """Initialize a database object with placeholder values.
+
+        :param working_db: Name of the database you want to connect to
+        :type working_db: str
+        :param un: User name within the database, defaults to "postgres"
+        :type un: str, optional
+        :param pw: Password for the user, defaults to "password1"
+        :type pw: str, optional
+        :param host: Host where the database lives, defaults to "localhost"
+        :type host: str, optional
+        :param port: Port number on the host, defaults to 5432
+        :type port: int, optional
+        :param sslmode: False or string like "require", defaults to False
+        :type sslmode: Union[bool, str], optional
+        :param super_db: SQL cluster root db, defaults to "postgres"
+        :type super_db: str, optional
+        :param super_un: SQL cluster root user, defaults to "postgres"
+        :type super_un: str, optional
+        :param super_pw: SQL cluster root password, defaults to "password2"
+        :type super_pw: str, optional
+        :param verbosity: Control how much gets printed out to the console,
+                          defaults to "full". Other options include "minimal"
+                          and "errors"
+        :type verbosity: str, optional
+        """
 
         self.DATABASE = working_db
         self.USER = un
@@ -43,8 +68,15 @@ class PostgreSQL():
 
         _print(self, 1, f"Created an object for {self.DATABASE} @ {self.HOST}")
 
-    def uri(self,
-            super_uri: bool = False) -> str:
+    def uri(self, super_uri: bool = False) -> str:
+        """Create a connection string URI for this database.
+
+        :param super_uri: Flag that will provide access to cluster
+                          root if True, defaults to False
+        :type super_uri: bool, optional
+        :return: Connection string URI for PostgreSQL
+        :rtype: str
+        """
 
         # If super_uri is True, use the super un/pw/db
         if super_uri:
@@ -67,6 +99,12 @@ class PostgreSQL():
         return connection_string
 
     def exists(self) -> bool:
+        """Does this database exist yet? True or False
+
+        :return: True or False if the database exists on the cluster
+        :rtype: bool
+        """
+
         sql_db_exists = f"""
             SELECT EXISTS(
                 SELECT datname FROM pg_catalog.pg_database
@@ -75,7 +113,13 @@ class PostgreSQL():
         """
         return query_item(self, sql_db_exists, super_uri=True)
 
-    def table_list(self):
+    def table_list(self) -> list:
+        """Get a list of all tables in the database
+
+        :return: List of tables in the database
+        :rtype: list
+        """
+
         sql_all_tables = """
             SELECT table_name
             FROM information_schema.tables
@@ -88,7 +132,12 @@ class PostgreSQL():
 
         return table_names
 
+    def column_list(self, table_name: str) -> list:
+        pass
+
     def create(self) -> None:
+        """Create this database (if it doesn't exist yet)"""
+
         if self.exists():
             _print(self, 1,
                    f"Database {self.DATABASE} already exists")
@@ -107,7 +156,9 @@ class PostgreSQL():
                 sql_add_postgis = "CREATE EXTENSION postgis;"
                 execute(self, sql_add_postgis)
 
-    def delete(self):
+    def delete(self) -> None:
+        """Delete this database (if it exists)"""
+
         if not self.exists():
             _print(self, 1, "This database does not exist, nothing to delete!")
         else:
@@ -115,15 +166,25 @@ class PostgreSQL():
             sql_drop_db = f"DROP DATABASE {self.DATABASE};"
             execute(self, sql_drop_db, autocommit=True)
 
-    def add_uid_column(self, table_name):
-        # Add a primary key column named 'uid'
+    def add_uid_column(self, table_name: str) -> None:
+        """Add a serial primary key column named 'uid' to the table.
+
+        :param table_name: Name of the table to add a uid column to
+        :type table_name: str
+        """
+
         sql_unique_id_column = f"""
             ALTER TABLE {table_name} DROP COLUMN IF EXISTS uid;
             ALTER TABLE {table_name} ADD uid serial PRIMARY KEY;"""
         execute(self, sql_unique_id_column)
 
-    def add_spatial_index(self, table_name):
-        # Create a spatial index on the 'geom' column
+    def add_spatial_index(self, table_name: str) -> None:
+        """Add a spatial index to the 'geom' column in the table.
+
+        :param table_name: Name of the table to make the index on
+        :type table_name: str
+        """
+
         sql_make_spatial_index = f"""
             CREATE INDEX gix_{table_name}
             ON {table_name}
@@ -132,10 +193,22 @@ class PostgreSQL():
         execute(self, sql_make_spatial_index)
 
     def reproject_spatial_data(self,
-                               table_name,
-                               old_epsg,
-                               new_epsg,
-                               geom_type):
+                               table_name: str,
+                               old_epsg: Union[int, str],
+                               new_epsg: Union[int, str],
+                               geom_type: str) -> None:
+        """Transform spatial data from one EPSG into another EPSG.
+
+        :param table_name: name of the table
+        :type table_name: str
+        :param old_epsg: Current EPSG of the data
+        :type old_epsg: Union[int, str]
+        :param new_epsg: Desired new EPSG for the data
+        :type new_epsg: Union[int, str]
+        :param geom_type: PostGIS-valid name of the
+                          geometry you're transforming
+        :type geom_type: str
+        """
 
         sql_transform_geom = f"""
             ALTER TABLE {table_name}
@@ -147,9 +220,19 @@ class PostgreSQL():
     def import_dataframe(self,
                          dataframe: pd.DataFrame,
                          table_name: str,
-                         if_exists: str = "fail"):
+                         if_exists: str = "fail") -> None:
+        """Import an in-memory Pandas dataframe to the SQL database.
 
-        # Enforce clean column names!
+        Enforce clean column names (without spaces, caps, or weird symbols).
+
+        :param dataframe: dataframe with data you want to save
+        :type dataframe: pd.DataFrame
+        :param table_name: name of the table that will get created
+        :type table_name: str
+        :param if_exists: pandas argument to handle overwriting data,
+                          defaults to "fail"
+        :type if_exists: str, optional
+        """
 
         # Replace "Column Name" with "column_name"
         dataframe.columns = dataframe.columns.str.replace(' ', '_')
@@ -171,6 +254,19 @@ class PostgreSQL():
                             gdf: gpd.GeoDataFrame,
                             table_name: str,
                             src_epsg: Union[int, bool] = False):
+        """Import an in-memory Geopands geodataframe to the SQL database.
+
+        :param gdf: geodataframe with data you want to save
+        :type gdf: gpd.GeoDataFrame
+        :param table_name: name of the table that will get created
+        :type table_name: str
+        :param src_epsg: The source EPSG code can be passed as an integer.
+                         By default this function will try to read the EPSG
+                         code directly, but some spatial data is funky and
+                         requires that you explicitly declare its projection.
+                         Defaults to False
+        :type src_epsg: Union[int, bool], optional
+        """
 
         # Read the geometry type. It's possible there are
         # both MULTIPOLYGONS and POLYGONS. This grabs the MULTI variant
@@ -228,19 +324,42 @@ class PostgreSQL():
         self.add_spatial_index(table_name)
 
     def load_csv(self,
-                 csv_path,
-                 table_name,
+                 table_name: str,
+                 csv_path: Union[Path, str],
                  if_exists: str = "append",
                  **csv_kwargs):
+        """Load a CSV into a dataframe, then save the df to SQL.
+
+        :param table_name: Name of the table you want to create
+        :type table_name: str
+        :param csv_path: Path to data. Anything accepted by Pandas works here.
+        :type csv_path: Union[Path, str]
+        :param if_exists: How to handle overwriting existing data,
+                          defaults to "append"
+        :type if_exists: str, optional
+        :param \\**csv_kwargs: any kwargs for ``pd.read_csv`` are valid here.
+        """
+
         # Read the CSV with whatever kwargs were passed
         df = pd.read_csv(csv_path, **csv_kwargs)
 
         self.import_dataframe(df, table_name, if_exists=if_exists)
 
     def load_geodata(self,
-                     table_name,
-                     data_path,
+                     table_name: str,
+                     data_path: Union[Path, str],
                      src_epsg: Union[int, bool] = False):
+        """Load geographic data into a geodataframe, then save to SQL.
+
+        :param table_name: Name of the table you want to create
+        :type table_name: str
+        :param data_path: Path to the data. Anything accepted by Geopandas
+                          works here.
+        :type data_path: Union[Path, str]
+        :param src_epsg: Manually declare the source EPSG if needed,
+                         defaults to False
+        :type src_epsg: Union[int, bool], optional
+        """
 
         _print(self, 2, f"Loading geodata into {table_name}")
 
