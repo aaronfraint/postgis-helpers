@@ -7,10 +7,13 @@ Example
     >>> import postgis_helpers as pGIS
     >>> db = pGIS.PostgreSQL("my_database_name")
     >>> db.create()
-    >>> db.load_geodata("bike_lanes", "http://url.to.shapefile")
+    >>> db.import_geodata("bike_lanes", "http://url.to.shapefile")
     >>> bike_gdf = db.query_as_geo_df("select * from bike_lanes")
 
 """
+import os
+from datetime import datetime
+
 import pandas as pd
 import geopandas as gpd
 
@@ -315,6 +318,25 @@ class PostgreSQL():
             self._print(3, f"Deleting database! {self.DATABASE}")
             sql_drop_db = f"DROP DATABASE {self.DATABASE};"
             self.execute(sql_drop_db, autocommit=True)
+
+    def load_from_sql_dump(self, sql_dump_filepath: Union[Path, str]) -> None:
+        """Populate the database by loading from a SQL file that
+           was previously created by ``pg_dump``. Will only run
+           on fresh databases.
+
+        :param sql_dump_filepath: filepath to the ``.sql`` dump file
+        :type sql_dump_filepath: Union[Path, str]
+        """
+
+        if self.exists():
+            self._print(3, f"Database named {self.DATABASE} already exists!")
+        else:
+            self._print(2, f"Loading {self.DATABASE} from {sql_dump_filepath}")
+
+            self.create()
+
+            system_command = f'psql "{self.uri()}" <  "{sql_dump_filepath}"'
+            os.system(system_command)
 
     # Get lists of things inside this database (or the cluster at large)
     # ------------------------------------------------------------------
@@ -734,3 +756,78 @@ class PostgreSQL():
         self.table_add_spatial_index(new_table_name)
 
         # TODO: reproject?
+
+    # Data EXPORT functions
+    # ---------------------
+
+    def export_shapefile(self,
+                         table_name: str,
+                         output_folder: Union[Path, str],
+                         where_clause: Union[str, bool] = False
+                         ) -> gpd.GeoDataFrame:
+        """Save a spatial SQL table to shapefile.
+           Add an optional filter with the ``where_clause``:
+               ``'WHERE speed_limit <= 35'``
+
+        :param table_name: Name of the table to export
+        :type table_name: str
+        :param output_folder: Folder path to write to
+        :type output_folder: Union[Path, str]
+        :param where_clause: Any valid SQL where clause, defaults to False
+        :type where_clause: Union[str, bool], optional
+        """
+
+        query = f"SELECT * FROM {table_name} "
+
+        if where_clause:
+            query += where_clause
+
+        gdf = self.query_as_geo_df(query)
+
+        # Force any boolean columns into strings
+        for c in gdf.columns:
+            datatype = gdf[c].dtype.name
+            if datatype == 'bool':
+                gdf[c] = gdf[c].astype(str)
+
+        output_path = os.path.join(output_folder, f"{table_name}.shp")
+        gdf.to_file(output_path)
+
+        return gdf
+
+    def export_all_shapefiles(self,
+                              output_folder: Union[Path, str]) -> None:
+        """Save all spatial tables in the database to shapefile.
+
+        :param output_folder: Folder path to write to
+        :type output_folder: Union[Path, str]
+        """
+
+        for table in self.all_spatial_tables_as_dict():
+            self.export_shapefile(table, output_folder)
+
+    def export_pgdump_file(self, output_folder: Union[Path, str]) -> str:
+        """Save this database to a ``.sql`` file. 
+           Requires ``pg_dump`` to be accessible via the command line.
+
+
+        :param output_folder: Folder path to write .sql file to
+        :type output_folder: Union[Path, str]
+        :return: Filepath to SQL file that was created
+        :rtype: str
+        """
+
+        # Get a string for today's date and time,
+        # like '2020_06_10' and '14_13_38'
+        now = str(datetime.now())
+        today = now.split(' ')[0].replace('-', '_')
+        timestamp = now.split(' ')[1].replace(':', '_').split(".")[0]
+
+        # Use pg_dump to save the database to disk
+        sql_name = f"{self.DATABASE}_d_{today}_t_{timestamp}.sql"
+        sql_file = os.path.join(output_folder, sql_name)
+
+        system_call = f'pg_dump {self.uri()} > "{sql_file}" '
+        os.system(system_call)
+
+        return sql_file
