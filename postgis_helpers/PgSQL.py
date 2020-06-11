@@ -112,7 +112,7 @@ class PostgreSQL():
         :type message: str
         """
 
-        prefix = r"pGIS |--> "
+        prefix = r"pGIS | --> "
 
         msg = prefix + message
 
@@ -200,9 +200,9 @@ class PostgreSQL():
 
         return gdf
 
-    def query_single_item(self,
-                          query: str,
-                          super_uri: bool = False):
+    def query_as_single_item(self,
+                             query: str,
+                             super_uri: bool = False):
         """Query the database and get the result as a SINGLETON.
            For when you want to transform ``[(True,)]`` into ``True``
 
@@ -294,7 +294,7 @@ class PostgreSQL():
                 WHERE lower(datname) = lower('{self.DATABASE}')
             );
         """
-        return self.query_single_item(sql_db_exists, super_uri=True)
+        return self.query_as_single_item(sql_db_exists, super_uri=True)
 
     def create(self) -> None:
         """Create this database (if it doesn't exist yet)"""
