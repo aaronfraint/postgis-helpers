@@ -10,5 +10,5 @@ To create the development environment:
 
 To update the documentation:
 ```bash
-(postgis_helpers) $ sphinx-apidoc --separate --module-first -o ./ ../ ../setup.py
+(postgis_helpers) $ sphinx-apidoc --separate --module-first -o ./ ../postgis_helpers
 ```
