@@ -14,7 +14,7 @@ Create a database and import a shapefile:
 
 """
 import os
-from datetime import datetime
+import datetime
 
 import pandas as pd
 import geopandas as gpd
@@ -27,6 +27,28 @@ from typing import Union
 from pathlib import Path
 
 from .sql_helpers import sql_hex_grid_function_definition
+
+
+def _now():
+    return datetime.datetime.now()
+
+
+def report_time_delta(start_time: datetime.datetime,
+                      end_time: datetime.datetime) -> str:
+    """Calculate a timedelta between two datetimes,
+    and return a string with "Runtime: h:mm:ss.sss"
+
+    :param start_time: first timepoint
+    :type start_time: datetime.datetime
+    :param end_time: second timepoint
+    :type end_time: datetime.datetime
+    :return: text formatted as "h:mm:ss.sss"
+    :rtype: str
+    """
+
+    hms, milisec = str(end_time - start_time).split(".")
+
+    return "Runtime: " + hms + "." + milisec[:3]
 
 
 class PostgreSQL():
@@ -73,10 +95,12 @@ class PostgreSQL():
         :param super_pw: SQL cluster root password, defaults to "password2"
         :type super_pw: str, optional
         :param verbosity: Control how much gets printed out to the console,
-                          defaults to "full". Other options include "minimal"
-                          and "errors"
+                          defaults to ``"full"``. Other options include
+                          ``"minimal"`` and ``"errors"``
         :type verbosity: str, optional
         """
+
+        verbosity_options = ["full", "minimal", "errors"]
 
         self.DATABASE = working_db
         self.USER = un
@@ -88,9 +112,13 @@ class PostgreSQL():
         self.SUPER_USER = super_un
         self.SUPER_PASSWORD = super_pw
 
-        self.VERBOSITY = verbosity
+        if verbosity in verbosity_options:
+            self.VERBOSITY = verbosity
+        else:
+            msg = f"verbosity must be one of: {verbosity_options}"
+            raise ValueError(msg)
 
-        self._print(1, f"Created an object for {self.DATABASE} @ {self.HOST}")
+        self._print(2, f"Working on: {self.DATABASE} @ {self.HOST}")
 
     def _print(self,
                level: int,
@@ -112,18 +140,40 @@ class PostgreSQL():
         :type message: str
         """
 
-        prefix = r"pGIS | --> "
+        print_out = False
 
-        msg = prefix + message
+        prefix = r"pGIS --> "
+        prefix_as_spaces = " " * len(prefix)
 
         if self.VERBOSITY == "full" and level in [1, 2, 3]:
-            print(msg)
+            print_out = True
+            if level == 1:
+                prefix = prefix_as_spaces
 
         elif self.VERBOSITY == "minimal" and level in [2, 3]:
-            print(msg)
+            print_out = True
 
         elif self.VERBOSITY == "errors" and level in [3]:
+            print_out = True
+
+        if print_out:
+            msg = prefix + message
             print(msg)
+
+    def _timer(foo):
+        def magic(self, *args, **kwargs):
+            start_time = _now()
+
+            function_return_value = foo(self, *args, **kwargs)
+
+            end_time = _now()
+
+            # Print runtime out when "full"
+            runtime_msg = f"\t {report_time_delta(start_time, end_time)}"
+            self._print(1, runtime_msg)
+
+            return function_return_value
+        return magic
 
     # QUERY the database
     # ------------------
@@ -170,6 +220,7 @@ class PostgreSQL():
         :return: dataframe with the query result
         :rtype: pd.DataFrame
         """
+
         uri = self.uri(super_uri=super_uri)
 
         engine = sqlalchemy.create_engine(uri)
@@ -219,6 +270,7 @@ class PostgreSQL():
 
         return result[0][0]
 
+    @_timer
     def execute(self,
                 query: str,
                 autocommit: bool = False):
@@ -231,6 +283,10 @@ class PostgreSQL():
                            super db/user, defaults to False
         :type autocommit: bool, optional
         """
+
+        self._print(1, "... executing ...")
+        if len(query) < 5000:
+            self._print(1, "\t " + query)
 
         uri = self.uri(super_uri=autocommit)
 
@@ -328,10 +384,11 @@ class PostgreSQL():
         if not self.exists():
             self._print(1, "This database does not exist, nothing to delete!")
         else:
-            self._print(3, f"Deleting database! {self.DATABASE}")
+            self._print(3, f"Deleting database: {self.DATABASE}")
             sql_drop_db = f"DROP DATABASE {self.DATABASE};"
             self.execute(sql_drop_db, autocommit=True)
 
+    @_timer
     def load_from_sql_dump(self, sql_dump_filepath: Union[Path, str]) -> None:
         """Populate the database by loading from a SQL file that
            was previously created by ``pg_dump``. Will only run
@@ -446,10 +503,15 @@ class PostgreSQL():
         :type column_type: str
         """
 
+        msg = f"Adding {column_type} col named {column_name} to {table_name}"
+        self._print(1, msg)
+
         existing_columns = self.table_columns_as_list(table_name)
 
         if column_name in existing_columns:
-            query = f"UPDATE {table_name} SET {column_name} = NULL;"
+            query = f"""
+                UPDATE {table_name} SET {column_name} = NULL;
+            """
         else:
             query = f"""
                 ALTER TABLE {table_name}
@@ -465,9 +527,12 @@ class PostgreSQL():
         :type table_name: str
         """
 
+        self._print(1, f"Adding uid column to {table_name}")
+
         sql_unique_id_column = f"""
             ALTER TABLE {table_name} DROP COLUMN IF EXISTS uid;
-            ALTER TABLE {table_name} ADD uid serial PRIMARY KEY;"""
+            ALTER TABLE {table_name} ADD uid serial PRIMARY KEY;
+        """
         self.execute(sql_unique_id_column)
 
     def table_add_spatial_index(self, table_name: str) -> None:
@@ -477,7 +542,10 @@ class PostgreSQL():
         :type table_name: str
         """
 
+        self._print(1, f"Creating a spatial index on {table_name}")
+
         sql_make_spatial_index = f"""
+            DROP INDEX IF EXISTS gix_{table_name};
             CREATE INDEX gix_{table_name}
             ON {table_name}
             USING GIST (geom);
@@ -502,6 +570,9 @@ class PostgreSQL():
         :type geom_type: str
         """
 
+        msg = f"Reprojecting {table_name} from {old_epsg} to {new_epsg}"
+        self._print(1, msg)
+
         sql_transform_geom = f"""
             ALTER TABLE {table_name}
             ALTER COLUMN geom TYPE geometry({geom_type}, {new_epsg})
@@ -516,7 +587,11 @@ class PostgreSQL():
         :type table_name: str
         """
 
-        sql_drop_table = f"DROP TABLE {table_name} CASCADE;"
+        self._print(2, f"Deleting table: {table_name}")
+
+        sql_drop_table = f"""
+            DROP TABLE {table_name} CASCADE;
+        """
         self.execute(sql_drop_table)
 
     # IMPORT data into the database
@@ -538,6 +613,7 @@ class PostgreSQL():
                           defaults to "fail"
         :type if_exists: str, optional
         """
+        self._print(2, f"Importing dataframe to: {table_name}")
 
         # Replace "Column Name" with "column_name"
         dataframe.columns = dataframe.columns.str.replace(' ', '_')
@@ -552,8 +628,6 @@ class PostgreSQL():
         engine = sqlalchemy.create_engine(self.uri())
         dataframe.to_sql(table_name, engine, if_exists=if_exists)
         engine.dispose()
-
-        self._print(2, f"Imported dataframe to {table_name}")
 
     def import_geodataframe(self,
                             gdf: gpd.GeoDataFrame,
@@ -582,6 +656,8 @@ class PostgreSQL():
 
         geom_types = list(gdf.geometry.geom_type.unique())
         geom_typ = max(geom_types, key=len).upper()
+
+        self._print(2, f"Importing {geom_typ} geodataframe to: {table_name}")
 
         # Manually set the EPSG if the user passes one
         if src_epsg:
@@ -632,6 +708,7 @@ class PostgreSQL():
         self.table_add_uid_column(table_name)
         self.table_add_spatial_index(table_name)
 
+    @_timer
     def import_csv(self,
                    table_name: str,
                    csv_path: Union[Path, str],
@@ -648,6 +725,7 @@ class PostgreSQL():
         :type if_exists: str, optional
         :param \**csv_kwargs: any kwargs for ``pd.read_csv()`` are valid here.
         """
+        self._print(2, "Loading CSV to dataframe")
 
         # Read the CSV with whatever kwargs were passed
         df = pd.read_csv(csv_path, **csv_kwargs)
@@ -674,7 +752,7 @@ class PostgreSQL():
         :type if_exists: str, optional
         """
 
-        self._print(2, f"Loading geodata into {table_name}")
+        self._print(2, "Loading spatial data to geodataframe")
 
         # Read the data into a geodataframe
         gdf = gpd.read_file(data_path)
@@ -699,6 +777,8 @@ class PostgreSQL():
                                  query: str,
                                  new_table_name: str,
                                  geom_type: str) -> None:
+
+        self._print(2, f"Making new geotable in DB : {new_table_name}")
 
         valid_geom_types = ["POINT", "MULTIPOINT",
                             "POLYGON", "MULTIPOLYGON",
@@ -747,6 +827,8 @@ class PostgreSQL():
         :type hexagon_size: float
         """
 
+        self._print(2, f"Creating hexagon table named: {new_table_name}")
+
         sql_create_hex_grid = f"""
 
             DROP TABLE IF EXISTS {new_table_name};
@@ -784,6 +866,7 @@ class PostgreSQL():
     # EXPORT data to file / disk
     # --------------------------
 
+    @_timer
     def export_shapefile(self,
                          table_name: str,
                          output_folder: Union[Path, str],
@@ -801,10 +884,13 @@ class PostgreSQL():
         :type where_clause: Union[str, bool], optional
         """
 
+        self._print(2, "Exporting {table_name} to shapefile")
+
         query = f"SELECT * FROM {table_name} "
 
         if where_clause:
             query += where_clause
+            self._print(1, f"WHERE clause applied: {where_clause}")
 
         gdf = self.query_as_geo_df(query)
 
@@ -816,6 +902,8 @@ class PostgreSQL():
 
         output_path = os.path.join(output_folder, f"{table_name}.shp")
         gdf.to_file(output_path)
+
+        self._print(1, f"Saved to {output_path}")
 
         return gdf
 
@@ -830,8 +918,9 @@ class PostgreSQL():
         for table in self.all_spatial_tables_as_dict():
             self.export_shapefile(table, output_folder)
 
+    @_timer
     def export_pgdump_file(self, output_folder: Union[Path, str]) -> str:
-        """Save this database to a ``.sql`` file. 
+        """Save this database to a ``.sql`` file.
            Requires ``pg_dump`` to be accessible via the command line.
 
 
@@ -843,13 +932,15 @@ class PostgreSQL():
 
         # Get a string for today's date and time,
         # like '2020_06_10' and '14_13_38'
-        now = str(datetime.now())
-        today = now.split(' ')[0].replace('-', '_')
-        timestamp = now.split(' ')[1].replace(':', '_').split(".")[0]
+        right_now = str(_now())
+        today = right_now.split(' ')[0].replace('-', '_')
+        timestamp = right_now.split(' ')[1].replace(':', '_').split(".")[0]
 
         # Use pg_dump to save the database to disk
         sql_name = f"{self.DATABASE}_d_{today}_t_{timestamp}.sql"
         sql_file = os.path.join(output_folder, sql_name)
+
+        self._print(2, f"Exporting {self.DATABASE} to {sql_file}")
 
         system_call = f'pg_dump {self.uri()} > "{sql_file}" '
         os.system(system_call)
