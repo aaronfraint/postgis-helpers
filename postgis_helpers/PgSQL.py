@@ -35,7 +35,8 @@ def _now():
 
 def report_time_delta(start_time: datetime.datetime,
                       end_time: datetime.datetime) -> str:
-    """Calculate a timedelta between two datetimes,
+    """
+    Calculate a timedelta between two datetimes,
     and return a string with "Runtime: h:mm:ss.sss"
 
     :param start_time: first timepoint
@@ -52,7 +53,8 @@ def report_time_delta(start_time: datetime.datetime,
 
 
 class PostgreSQL():
-    """This class encapsulates interactions with a ``PostgreSQL``
+    """
+    This class encapsulates interactions with a ``PostgreSQL``
     database. It leverages ``psycopg2``, ``sqlalchemy``, and ``geoalchemy2``
     as needed. It stores connection information that includes:
         - database name
@@ -74,7 +76,8 @@ class PostgreSQL():
                  super_un: str = "postgres",
                  super_pw: str = "password2",
                  verbosity: str = "full"):
-        """Initialize a database object with placeholder values.
+        """
+        Initialize a database object with placeholder values.
 
         :param working_db: Name of the database you want to connect to
         :type working_db: str
@@ -100,8 +103,6 @@ class PostgreSQL():
         :type verbosity: str, optional
         """
 
-        verbosity_options = ["full", "minimal", "errors"]
-
         self.DATABASE = working_db
         self.USER = un
         self.PASSWORD = pw
@@ -112,21 +113,46 @@ class PostgreSQL():
         self.SUPER_USER = super_un
         self.SUPER_PASSWORD = super_pw
 
+        verbosity_options = ["full", "minimal", "errors"]
+
         if verbosity in verbosity_options:
             self.VERBOSITY = verbosity
         else:
             msg = f"verbosity must be one of: {verbosity_options}"
             raise ValueError(msg)
 
-        self._print(2, f"Working on: {self.DATABASE} @ {self.HOST}")
+        self._print(2, f"{self.DATABASE} @ {self.HOST}")
+
+    def connection_details(self) -> dict:
+        """
+        Return a dictionary that can be used to
+        instantiate other database connections on the
+        same SQL cluster.
+
+        :return: Dictionary with all of the SQL cluster connection info
+        :rtype: dict
+        """
+        details = {
+            "un": self.USER,
+            "pw": self.PASSWORD,
+            "host": self.HOST,
+            "port": self.PORT,
+            "sslmode": self.SSLMODE,
+            "super_db": self.SUPER_DB,
+            "super_un": self.SUPER_USER,
+            "super_pw": self.SUPER_PASSWORD
+        }
+
+        return details
 
     def _print(self,
                level: int,
                message: str):
-        """ Messages will print out depending on the VERBOSITY property
-            and the importance level provided.
+        """
+        Messages will print out depending on the VERBOSITY property
+        and the importance level provided.
 
-            VERBOSITY options include: ``full``, ``minimal``, and ``errors``
+        VERBOSITY options include: ``full``, ``minimal``, and ``errors``
 
             1 = Only prints in ``full``
             2 = Prints in ``full`` and ``minimal``,
@@ -160,11 +186,19 @@ class PostgreSQL():
             msg = prefix + message
             print(msg)
 
-    def _timer(foo):
+    def timer(func):
+        """
+        Decorator function that will record &
+        report on how long it takes for a function
+        to execute.
+
+        :param func: the function to be timed
+        :type func: function
+        """
         def magic(self, *args, **kwargs):
             start_time = _now()
 
-            function_return_value = foo(self, *args, **kwargs)
+            function_return_value = func(self, *args, **kwargs)
 
             end_time = _now()
 
@@ -181,7 +215,8 @@ class PostgreSQL():
     def query_as_list(self,
                       query: str,
                       super_uri: bool = False) -> list:
-        """Query the database and get the result as a LIST
+        """
+        Query the database and get the result as a ``list``
 
         :param query: any valid SQL query string
         :type query: str
@@ -210,7 +245,8 @@ class PostgreSQL():
     def query_as_df(self,
                     query: str,
                     super_uri: bool = False) -> pd.DataFrame:
-        """Query the database and get the result as a ``pandas.DataFrame``
+        """
+        Query the database and get the result as a ``pandas.DataFrame``
 
         :param query: any valid SQL query string
         :type query: str
@@ -232,7 +268,8 @@ class PostgreSQL():
     def query_as_geo_df(self,
                         query: str,
                         geom_col: str = "geom") -> gpd.GeoDataFrame:
-        """Query the database and get the result as a ``geopandas.GeoDataFrame``
+        """
+        Query the database and get the result as a ``geopandas.GeoDataFrame``
 
         :param query: any valid SQL query string
         :type query: str
@@ -254,8 +291,9 @@ class PostgreSQL():
     def query_as_single_item(self,
                              query: str,
                              super_uri: bool = False):
-        """Query the database and get the result as a SINGLETON.
-           For when you want to transform ``[(True,)]`` into ``True``
+        """
+        Query the database and get the result as a SINGLETON.
+        For when you want to transform ``[(True,)]`` into ``True``
 
         :param query: any valid SQL query string
         :type query: str
@@ -270,12 +308,13 @@ class PostgreSQL():
 
         return result[0][0]
 
-    @_timer
+    @timer
     def execute(self,
                 query: str,
                 autocommit: bool = False):
-        """Execute a query for a persistent result in the database.
-           Use ``autocommit=True`` when creating and deleting databases.
+        """
+        Execute a query for a persistent result in the database.
+        Use ``autocommit=True`` when creating and deleting databases.
 
         :param query: any valid SQL query string
         :type query: str
@@ -308,7 +347,8 @@ class PostgreSQL():
     # -------------------------------
 
     def uri(self, super_uri: bool = False) -> str:
-        """Create a connection string URI for this database.
+        """
+        Create a connection string URI for this database.
 
         :param super_uri: Flag that will provide access to cluster
                           root if True, defaults to False
@@ -384,11 +424,11 @@ class PostgreSQL():
         if not self.exists():
             self._print(1, "This database does not exist, nothing to delete!")
         else:
-            self._print(3, f"Deleting database: {self.DATABASE}")
+            self._print(3, f"Deleting database: {self.DATABASE} on {self.HOST}")
             sql_drop_db = f"DROP DATABASE {self.DATABASE};"
             self.execute(sql_drop_db, autocommit=True)
 
-    @_timer
+    @timer
     def load_from_sql_dump(self, sql_dump_filepath: Union[Path, str]) -> None:
         """Populate the database by loading from a SQL file that
            was previously created by ``pg_dump``. Will only run
@@ -460,7 +500,7 @@ class PostgreSQL():
                 AND datname != '{self.SUPER_DB}';
         """
 
-        database_list = self.query_as_list(sql_all_databases)
+        database_list = self.query_as_list(sql_all_databases, super_uri=True)
 
         return [d[0] for d in database_list]
 
@@ -708,7 +748,7 @@ class PostgreSQL():
         self.table_add_uid_column(table_name)
         self.table_add_spatial_index(table_name)
 
-    @_timer
+    @timer
     def import_csv(self,
                    table_name: str,
                    csv_path: Union[Path, str],
@@ -731,6 +771,8 @@ class PostgreSQL():
         df = pd.read_csv(csv_path, **csv_kwargs)
 
         self.import_dataframe(df, table_name, if_exists=if_exists)
+
+        return df
 
     def import_geodata(self,
                        table_name: str,
@@ -866,7 +908,7 @@ class PostgreSQL():
     # EXPORT data to file / disk
     # --------------------------
 
-    @_timer
+    @timer
     def export_shapefile(self,
                          table_name: str,
                          output_folder: Union[Path, str],
@@ -918,7 +960,7 @@ class PostgreSQL():
         for table in self.all_spatial_tables_as_dict():
             self.export_shapefile(table, output_folder)
 
-    @_timer
+    @timer
     def export_pgdump_file(self, output_folder: Union[Path, str]) -> str:
         """Save this database to a ``.sql`` file.
            Requires ``pg_dump`` to be accessible via the command line.
@@ -972,3 +1014,55 @@ class PostgreSQL():
         else:
             df = self.query_as_df(query)
             other_postgresql_db.import_dataframe(df, table_name)
+
+    # CLASS-level helper functions
+    @classmethod
+    def create_object_from_uri(cls,
+                               uri: str,
+                               verbosity: str = "full",
+                               super_db: str = "postgres"):
+        """
+        Create a ``PostgreSQL`` object from a URI. Note that
+        this process must make assumptions about the super-user
+        of the database. Proceed with caution.
+
+        :param uri: database connection string
+        :type uri: str
+        :param verbosity: level of printout desired, defaults to "full"
+        :type verbosity: str, optional
+        :param super_db: name of the SQL cluster master DB,
+                         defaults to "postgres"
+        :type super_db: str, optional
+        :return: ``PostgreSQL()`` object
+        :rtype: PostgreSQL
+        """
+
+        uri_list = uri.split("?")
+        base_uri = uri_list[0]
+
+        # Break off the ?sslmode section
+        if len(uri_list) > 1:
+            sslmode = uri_list[1]
+        else:
+            sslmode = False
+
+        # Get rid of postgresql://
+        base_uri = base_uri.replace(r"postgresql://", "")
+
+        # Split values up to get component parts
+        un_pw, host_port_db = base_uri.split("@")
+        username, password = un_pw.split(":")
+        host, port_db = host_port_db.split(":")
+        port, db_name = port_db.split(r"/")
+
+        values = {"host": host,
+                  "un": username,
+                  "pw": password,
+                  "port": port,
+                  "sslmode": sslmode,
+                  "verbosity": "full",
+                  "super_db": super_db,
+                  "super_un": username,
+                  "super_pw": password}
+
+        return cls(db_name, **values)
