@@ -9,7 +9,6 @@ by named profiles inside ``[square_brackets]``.
 import os
 import configparser
 from pathlib import Path
-from .PgSQL import PostgreSQL
 
 
 starter_config_file = """
@@ -37,8 +36,7 @@ super_pw = some_super_password12354
 """
 
 
-def get_config(working_db: str,
-               verbosity: str = "minimal") -> dict:
+def configurations(verbosity: str = "full") -> dict:
 
     config_file = os.path.join(Path.home(), ".postgis_helpers")
 
@@ -53,7 +51,4 @@ def get_config(working_db: str,
     config = configparser.ConfigParser()
     config.read(config_file)
 
-    return {host: PostgreSQL(working_db,
-                             verbosity=verbosity,
-                             **config[host])
-            for host in config.sections()}
+    return {host: config[host] for host in config.sections()}
