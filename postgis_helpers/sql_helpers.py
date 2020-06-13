@@ -1,11 +1,10 @@
 """
-
+This function was found and copied from the web link below:
+https://github.com/minus34/postgis-scripts/blob/master/hex-grid/create-hex-grid-function.sql
 
 """
 
 sql_hex_grid_function_definition = """
------- this function was found and copied from the web link below:
------- https://github.com/minus34/postgis-scripts/blob/master/hex-grid/create-hex-grid-function.sql
 --------------------------------------------------------------------------------------------------------------------------------
 -- HEX GRID - Create function
 --------------------------------------------------------------------------------------------------------------------------------
