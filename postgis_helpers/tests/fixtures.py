@@ -20,7 +20,7 @@ def database_local():
 
     # Set up the database
     db = PostgreSQL("test_from_ward",
-                    verbosity="full",
+                    verbosity="minimal",
                     **configurations()["localhost"])
     db.create()
 
