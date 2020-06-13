@@ -1,38 +1,33 @@
+import pandas as pd
 from ward import test, using
 
 from postgis_helpers import PostgreSQL
-from postgis_helpers.tests.fixtures import database_local
-
-CSV_URL = "https://github.com/CSSEGISandData/COVID-19/blob/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv?raw=true"
+from postgis_helpers.tests.fixtures import database_local, CSV_NAME, CSV_URL
 
 
 # Does the table exist after importing it?
 # ---------- ---------- ---------- -------
 def _test_import_csv(db: PostgreSQL,
-                     table_name: str,
-                     file_path: str = CSV_URL):
+                     table_name: str):
 
-    # Import a CSV file
-    db.import_csv(table_name, file_path, if_exists="replace")
-
-    # Confirm there is now a table in the DB
+    # Confirm the CSV is now a table in the DB
     assert table_name in db.all_tables_as_list()
 
 
 @test("PostgreSQL().import_csv() imports a table")
-@using(db=database_local)
-def _(db):
-    _test_import_csv(db, "covid_confirmed_us", CSV_URL)
+@using(db=database_local, table_name=CSV_NAME)
+def _(db, table_name):
+    _test_import_csv(db, table_name)
 
 
 # Does the SQL table have the same number of rows as the dataframe?
 # ---------- ---------- ---------- ---------- ---------- ----------
 def _test_import_csv_matches(db: PostgreSQL,
                              table_name: str,
-                             file_path: str = CSV_URL):
+                             file_path: str):
 
     # Import a CSV file
-    df = db.import_csv(table_name, file_path, if_exists="replace")
+    df = pd.read_csv(file_path)
 
     # Get the number of rows in the raw dataframe
     csv_row_count, _ = df.shape
@@ -48,6 +43,6 @@ def _test_import_csv_matches(db: PostgreSQL,
 
 
 @test("PostgreSQL().import_csv() imports a table with all rows")
-@using(db=database_local)
-def _(db):
-    _test_import_csv(db, "covid_confirmed_us", CSV_URL)
+@using(db=database_local, table_name=CSV_NAME, file_path=CSV_URL)
+def _(db, table_name, file_path):
+    _test_import_csv_matches(db, table_name, file_path)
