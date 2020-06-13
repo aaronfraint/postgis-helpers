@@ -598,7 +598,12 @@ class PostgreSQL():
                                      old_epsg: Union[int, str],
                                      new_epsg: Union[int, str],
                                      geom_type: str) -> None:
-        """Transform spatial data from one EPSG into another EPSG.
+        """
+        Transform spatial data from one EPSG into another EPSG.
+
+        This can also be used with the same old and new EPSG. This
+        is useful when making a new geotable, as this SQL code
+        will update the table's entry in the ``geometry_columns`` table.
 
         :param table_name: name of the table
         :type table_name: str
@@ -819,7 +824,8 @@ class PostgreSQL():
     def make_geotable_from_query(self,
                                  query: str,
                                  new_table_name: str,
-                                 geom_type: str) -> None:
+                                 geom_type: str,
+                                 epsg: int) -> None:
 
         self._print(2, f"Making new geotable in DB : {new_table_name}")
 
@@ -846,9 +852,8 @@ class PostgreSQL():
 
         self.table_add_uid_column(new_table_name)
         self.table_add_spatial_index(new_table_name)
-
-        # TODO: do we need to "register" this spatial data??? Probably
-        # self.table_reproject_spatial_data(new_table_name)
+        self.table_reproject_spatial_data(new_table_name,
+                                          epsg, epsg, geom_type=geom_type)
 
     def make_hexagon_overlay(self,
                              new_table_name: str,
