@@ -6,6 +6,7 @@ Sphinx
 sphinx_rtd_theme
 coverage
 flake8
+ward
 
 pandas
 geopandas
