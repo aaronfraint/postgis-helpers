@@ -424,7 +424,8 @@ class PostgreSQL():
         if not self.exists():
             self._print(1, "This database does not exist, nothing to delete!")
         else:
-            self._print(3, f"Deleting database: {self.DATABASE} on {self.HOST}")
+            self._print(3,
+                        f"Deleting database: {self.DATABASE} on {self.HOST}")
             sql_drop_db = f"DROP DATABASE {self.DATABASE};"
             self.execute(sql_drop_db, autocommit=True)
 
