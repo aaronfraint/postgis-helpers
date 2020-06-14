@@ -14,7 +14,6 @@ Create a database and import a shapefile:
 
 """
 import os
-import datetime
 
 import pandas as pd
 import geopandas as gpd
@@ -27,29 +26,10 @@ from typing import Union
 from pathlib import Path
 
 from .sql_helpers import sql_hex_grid_function_definition
+from .general_helpers import now, report_time_delta
 
-
-def _now():
-    return datetime.datetime.now()
-
-
-def report_time_delta(start_time: datetime.datetime,
-                      end_time: datetime.datetime) -> str:
-    """
-    Calculate a timedelta between two datetimes,
-    and return a string with "Runtime: h:mm:ss.sss"
-
-    :param start_time: first timepoint
-    :type start_time: datetime.datetime
-    :param end_time: second timepoint
-    :type end_time: datetime.datetime
-    :return: text formatted as "h:mm:ss.sss"
-    :rtype: str
-    """
-
-    hms, milisec = str(end_time - start_time).split(".")
-
-    return "Runtime: " + hms + "." + milisec[:3]
+DEFAULT_DATA_INBOX = Path.home() / "postgis_helpers" / "data_inbox"
+DEFAULT_DATA_OUTBOX = Path.home() / "postgis_helpers" / "data_outbox"
 
 
 class PostgreSQL():
@@ -75,7 +55,9 @@ class PostgreSQL():
                  super_db: str = "postgres",
                  super_un: str = "postgres",
                  super_pw: str = "password2",
-                 verbosity: str = "full"):
+                 verbosity: str = "full",
+                 data_inbox: Path = DEFAULT_DATA_INBOX,
+                 data_outbox: Path = DEFAULT_DATA_OUTBOX):
         """
         Initialize a database object with placeholder values.
 
@@ -113,6 +95,13 @@ class PostgreSQL():
         self.SUPER_USER = super_un
         self.SUPER_PASSWORD = super_pw
 
+        for folder in [data_inbox, data_outbox]:
+            if not folder.exists():
+                folder.mkdir()
+
+        self.DATA_INBOX = data_inbox
+        self.DATA_OUTBOX = data_outbox
+
         verbosity_options = ["full", "minimal", "errors"]
 
         if verbosity in verbosity_options:
@@ -120,6 +109,9 @@ class PostgreSQL():
         else:
             msg = f"verbosity must be one of: {verbosity_options}"
             raise ValueError(msg)
+
+        if not self.exists():
+            self.db_create()
 
         self._print(2, f"{self.DATABASE} @ {self.HOST}")
 
@@ -189,18 +181,18 @@ class PostgreSQL():
     def timer(func):
         """
         Decorator function that will record &
-        report on how long it takes for a function
-        to execute.
+        report on how long it takes for another
+        function to execute.
 
         :param func: the function to be timed
         :type func: function
         """
         def magic(self, *args, **kwargs):
-            start_time = _now()
+            start_time = now()
 
             function_return_value = func(self, *args, **kwargs)
 
-            end_time = _now()
+            end_time = now()
 
             # Print runtime out when "full"
             runtime_msg = f"\t {report_time_delta(start_time, end_time)}"
@@ -308,6 +300,9 @@ class PostgreSQL():
 
         return result[0][0]
 
+    # EXECUTE queries to make them persistent
+    # ---------------------------------------
+
     @timer
     def execute(self,
                 query: str,
@@ -392,7 +387,7 @@ class PostgreSQL():
         """
         return self.query_as_single_item(sql_db_exists, super_uri=True)
 
-    def create(self) -> None:
+    def db_create(self) -> None:
         """Create this database (if it doesn't exist yet)"""
 
         if self.exists():
@@ -418,7 +413,7 @@ class PostgreSQL():
             self._print(1, "Installing custom hexagon grid function")
             self.execute(sql_hex_grid_function_definition)
 
-    def delete(self) -> None:
+    def db_delete(self) -> None:
         """Delete this database (if it exists)"""
 
         if not self.exists():
@@ -430,24 +425,62 @@ class PostgreSQL():
             self.execute(sql_drop_db, autocommit=True)
 
     @timer
-    def load_from_sql_dump(self, sql_dump_filepath: Union[Path, str]) -> None:
-        """Populate the database by loading from a SQL file that
-           was previously created by ``pg_dump``. Will only run
-           on fresh databases.
+    def db_export_pgdump_file(self, output_folder: Union[Path, str]) -> str:
+        """
+        Save this database to a ``.sql`` file.
+        Requires ``pg_dump`` to be accessible via the command line.
+
+
+        :param output_folder: Folder path to write .sql file to
+        :type output_folder: Union[Path, str]
+        :return: Filepath to SQL file that was created
+        :rtype: str
+        """
+
+        # Get a string for today's date and time,
+        # like '2020_06_10' and '14_13_38'
+        rightnow = str(now())
+        today = rightnow.split(' ')[0].replace('-', '_')
+        timestamp = rightnow.split(' ')[1].replace(':', '_').split(".")[0]
+
+        # Use pg_dump to save the database to disk
+        sql_name = f"{self.DATABASE}_d_{today}_t_{timestamp}.sql"
+        sql_file = os.path.join(output_folder, sql_name)
+
+        self._print(2, f"Exporting {self.DATABASE} to {sql_file}")
+
+        system_call = f'pg_dump {self.uri()} > "{sql_file}" '
+        os.system(system_call)
+
+        return sql_file
+
+    @timer
+    def db_load_pgdump_file(self,
+                            sql_dump_filepath: Union[Path, str],
+                            overwrite: bool = True) -> None:
+        """
+        Populate the database by loading from a SQL file that
+        was previously created by ``pg_dump``.
 
         :param sql_dump_filepath: filepath to the ``.sql`` dump file
         :type sql_dump_filepath: Union[Path, str]
+        :param overwrite: flag that controls whether or not this
+                          function will replace the existing database
+        :type overwrite: bool
         """
 
         if self.exists():
-            self._print(3, f"Database named {self.DATABASE} already exists!")
-        else:
-            self._print(2, f"Loading {self.DATABASE} from {sql_dump_filepath}")
+            if overwrite:
+                self.db_delete()
+                self.db_create()
+            else:
+                self._print(3, f"Database named {self.DATABASE} already exists and overwrite=False!")
+                return
 
-            self.create()
+        self._print(2, f"Loading {self.DATABASE} from {sql_dump_filepath}")
 
-            system_command = f'psql "{self.uri()}" <  "{sql_dump_filepath}"'
-            os.system(system_command)
+        system_command = f'psql "{self.uri()}" <  "{sql_dump_filepath}"'
+        os.system(system_command)
 
     # LISTS of things inside this database (or the cluster at large)
     # --------------------------------------------------------------
@@ -966,34 +999,31 @@ class PostgreSQL():
         for table in self.all_spatial_tables_as_dict():
             self.export_shapefile(table, output_folder)
 
-    @timer
-    def export_pgdump_file(self, output_folder: Union[Path, str]) -> str:
-        """Save this database to a ``.sql`` file.
-           Requires ``pg_dump`` to be accessible via the command line.
+    # IMPORT/EXPORT data with shp2pgsql / pgsql2shp
+    # ---------------------------------------------
+    def pgsql2shp(self,
+                  table_name: str,
+                  output_folder: Path = None) -> Path:
 
+        # Use the default data outbox if none provided
+        if not output_folder:
+            output_folder = self.DATA_OUTBOX
 
-        :param output_folder: Folder path to write .sql file to
-        :type output_folder: Union[Path, str]
-        :return: Filepath to SQL file that was created
-        :rtype: str
-        """
+        # Put this shapefile into a subfolder
+        output_folder = output_folder / table_name
+        if not output_folder.exists():
+            output_folder.mkdir(parents=True)
 
-        # Get a string for today's date and time,
-        # like '2020_06_10' and '14_13_38'
-        right_now = str(_now())
-        today = right_now.split(' ')[0].replace('-', '_')
-        timestamp = right_now.split(' ')[1].replace(':', '_').split(".")[0]
+        output_file = output_folder / table_name
 
-        # Use pg_dump to save the database to disk
-        sql_name = f"{self.DATABASE}_d_{today}_t_{timestamp}.sql"
-        sql_file = os.path.join(output_folder, sql_name)
+        cmd = f'pgsql2shp -f "{output_file}" -h {self.HOST} -p {self.PORT} -u {self.USER} -P {self.PASSWORD} {self.DATABASE} {table_name}'
 
-        self._print(2, f"Exporting {self.DATABASE} to {sql_file}")
+        os.system(cmd)
 
-        system_call = f'pg_dump {self.uri()} > "{sql_file}" '
-        os.system(system_call)
+        self._print(2, cmd)
+        self._print(2, f"Exported {table_name} to {output_file}")
 
-        return sql_file
+        return output_folder / f"{table_name}.shp"
 
     # TRANSFER data to another database
     # ---------------------------------
@@ -1001,7 +1031,8 @@ class PostgreSQL():
     def transfer_data_to_another_db(self,
                                     table_name: str,
                                     other_postgresql_db) -> None:
-        """Copy data from one SQL database to another.
+        """
+        Copy data from one SQL database to another.
 
         :param table_name: Name of the table to copy
         :type table_name: str
