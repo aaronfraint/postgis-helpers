@@ -1,7 +1,7 @@
 from ward import test, using
 
 from postgis_helpers import PostgreSQL
-from postgis_helpers.tests.fixtures import DataForTest, database_local, test_shp_data
+from postgis_helpers.tests.fixtures import DataForTest, database_1, test_shp_data
 
 
 # Can we make new geometric tables from queries?
@@ -28,7 +28,7 @@ def _test_make_geotable_from_query(db: PostgreSQL,
     assert epsg == shp.EPSG
 
 
-@test("PostgreSQL().make_geotable_from_query() creates a new spatial table with appropriate EPSG")
-@using(database=database_local, shp=test_shp_data)
+@test("PostgreSQL().make_geotable_from_query() creates a geo table with proper EPSG")
+@using(database=database_1, shp=test_shp_data)
 def _(database, shp):
     _test_make_geotable_from_query(database, shp)

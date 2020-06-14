@@ -1,7 +1,7 @@
 from ward import test, using
 
 from postgis_helpers import PostgreSQL
-from postgis_helpers.tests.fixtures import DataForTest, database_local, database_remote, test_csv_data, test_shp_data
+from postgis_helpers.tests.fixtures import DataForTest, database_1, database_2, test_csv_data, test_shp_data
 
 
 # Can we transfer tabular data between DBs/Hosts?
@@ -24,8 +24,8 @@ def _test_transfer_data_tabular(db1: PostgreSQL,
 
 
 @test("PostgreSQL().transfer_data_to_another_db() works with tabular data")
-@using(database1=database_local,
-       database2=database_remote,
+@using(database1=database_1,
+       database2=database_2,
        csv=test_csv_data)
 def _(database1, database2, csv):
     _test_transfer_data_tabular(database1, database2, csv)
@@ -51,8 +51,8 @@ def _test_transfer_data_spatial(db1: PostgreSQL,
 
 
 @test("PostgreSQL().transfer_data_to_another_db() works with spatial data")
-@using(database1=database_local,
-       database2=database_remote,
+@using(database1=database_1,
+       database2=database_2,
        shp=test_shp_data)
 def _(database1, database2, shp):
     _test_transfer_data_spatial(database1, database2, shp)

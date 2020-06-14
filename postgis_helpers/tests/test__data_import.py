@@ -2,7 +2,7 @@ import pandas as pd
 from ward import test, using
 
 from postgis_helpers import PostgreSQL
-from postgis_helpers.tests.fixtures import DataForTest, database_local, test_csv_data
+from postgis_helpers.tests.fixtures import DataForTest, database_1, test_csv_data
 
 
 # Does the table exist after importing it?
@@ -15,7 +15,7 @@ def _test_import_csv(db: PostgreSQL,
 
 
 @test("PostgreSQL().import_csv() imports a table")
-@using(db=database_local, csv=test_csv_data)
+@using(db=database_1, csv=test_csv_data)
 def _(db, csv):
     _test_import_csv(db, csv)
 
@@ -42,6 +42,6 @@ def _test_import_csv_matches(db: PostgreSQL,
 
 
 @test("PostgreSQL().import_csv() imports a table with all rows")
-@using(db=database_local, csv=test_csv_data)
+@using(db=database_1, csv=test_csv_data)
 def _(db, csv):
     _test_import_csv_matches(db, csv)
