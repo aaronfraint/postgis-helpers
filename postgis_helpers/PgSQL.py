@@ -27,6 +27,7 @@ from pathlib import Path
 
 from .sql_helpers import sql_hex_grid_function_definition
 from .general_helpers import now, report_time_delta
+from .geopandas_helpers import spatialize_point_dataframe
 
 DEFAULT_DATA_INBOX = Path.home() / "postgis_helpers" / "data_inbox"
 DEFAULT_DATA_OUTBOX = Path.home() / "postgis_helpers" / "data_outbox"
@@ -673,6 +674,28 @@ class PostgreSQL():
         """
         self.execute(sql_drop_table)
 
+    def table_spatialize_points(self,
+                                src_table: str,
+                                x_lon_col: str,
+                                y_lat_col: str,
+                                epsg: int,
+                                if_exists: str = "replace",
+                                new_table: str = None) -> gpd.GeoDataFrame:
+
+        if not new_table:
+            new_table = f"{src_table}_spatial"
+
+        df = self.query_as_df(f"SELECT * FROM {src_table};")
+
+        gdf = spatialize_point_dataframe(df,
+                                         x_lon_col=x_lon_col,
+                                         y_lat_col=y_lat_col,
+                                         epsg=epsg)
+
+        self.import_geodataframe(gdf, new_table, if_exists=if_exists)
+
+        self._print(2, f"Spatialized points from {src_table} into {new_table}")
+
     # IMPORT data into the database
     # -----------------------------
 
@@ -1072,28 +1095,20 @@ class PostgreSQL():
 
         shapefile_without_extension = str(src_shapefile).replace(".shp", "")
 
-        cmd_list = ["shp2pgsql", "-d", "-e", "-I", "-S"]
-
-        # Start out the command
-        # cmd = f'shp2pgsql -d -e -I -S'
+        cmd = "shp2pgsql -d -e -I -S"
 
         # Use geopandas to figure out the source EPSG
-        cmd_list.append("-s")
         src_epsg = gpd.read_file(src_shapefile).crs.to_epsg()
         if new_epsg:
-            cmd_list.append(f"{src_epsg}:{new_epsg}")
+            cmd += f" -s {src_epsg}:{new_epsg}"
         else:
-            cmd_list.append(f"{src_epsg}")
+            cmd += f" -s {src_epsg}"
 
-        cmd_list.append(shapefile_without_extension)
-        cmd_list.append(table_name)
+        cmd += f" {shapefile_without_extension} {table_name}"
+        cmd += f" | psql {self.uri()}"
 
-        cmd_list.append("|")
-        cmd_list.append("psql")
-        cmd_list.append(self.uri())
-
-        subprocess.call(cmd_list, stdout=subprocess.DEVNULL)#, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        return cmd_list.join(" ")
+        os.system(cmd)
+        return cmd
 
     # TRANSFER data to another database
     # ---------------------------------
