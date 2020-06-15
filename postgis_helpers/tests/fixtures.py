@@ -19,23 +19,36 @@ class DataForTest():
     def __init__(self,
                  table_name: str,
                  data_type: str,
-                 src_path: Path,
+                 url_path: str = None,
                  epsg: int = None,
+                 import_folder: Path = None,
                  export_folder: Path = None):
 
         self.NAME = table_name
-        self.PATH = src_path
+        self.PATH_URL = url_path
         self.EPSG = epsg
+        self.DATA_TYPE = data_type
 
-        # Use a default folder to save outputs if none is provided
+        # FOLDER TO SAVE EXPORTED DATA
         if not export_folder:
             self.EXPORT_FOLDER = Path.home() / "postgis_helpers" / "test_data"
         else:
             self.EXPORT_FOLDER = export_folder
 
-        # Enssure that this folder exists
+        # FOLDER TO LOAD DOWNLOADED DATA FROM
+        if not import_folder:
+            self.IMPORT_FOLDER = Path.home() / "Downloads" / table_name
+        else:
+            self.IMPORT_FOLDER = import_folder
+
+        # Ensure that these folders exist
         if not self.EXPORT_FOLDER.exists():
             self.EXPORT_FOLDER.mkdir(parents=True)
+
+        if not self.IMPORT_FOLDER.exists():
+            self.IMPORT_FOLDER.mkdir(parents=True)
+
+        self.IMPORT_FILEPATH = self.IMPORT_FOLDER / f"{self.NAME}.{self.DATA_TYPE}"
 
     def is_spatial(self):
         if self.EPSG:
@@ -59,7 +72,7 @@ test_csv_data = DataForTest(
 )
 
 test_shp_data = DataForTest(
-    "philly_vz_hin_2017",
+    "high_injury_network_2017",
     "shp",
     "https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+high_injury_network_2017&filename=high_injury_network_2017&format=shp&skipfields=cartodb_id",
     2272
@@ -75,8 +88,8 @@ def database_1():
                     **configurations()["localhost"])
 
     # Import CSV and shapefile data sources
-    db.import_csv(test_csv_data.NAME, test_csv_data.PATH, if_exists="replace")
-    db.import_geodata(test_shp_data.NAME, test_shp_data.PATH, if_exists="replace")
+    db.import_csv(test_csv_data.NAME, test_csv_data.PATH_URL, if_exists="replace")
+    db.import_geodata(test_shp_data.NAME, test_shp_data.PATH_URL, if_exists="replace")
 
     # Yield to the test
     yield db
