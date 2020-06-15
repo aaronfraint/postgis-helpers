@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 from ward import test, using
 
@@ -26,7 +27,7 @@ def _test_import_csv_matches(db: PostgreSQL,
                              csv: DataForTest):
 
     # Import a CSV file
-    df = pd.read_csv(csv.PATH)
+    df = pd.read_csv(csv.PATH_URL)
 
     # Get the number of rows in the raw dataframe
     csv_row_count, _ = df.shape
