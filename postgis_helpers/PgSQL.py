@@ -14,7 +14,7 @@ Create a database and import a shapefile:
 
 """
 import os
-
+import subprocess
 import pandas as pd
 import geopandas as gpd
 
@@ -51,7 +51,7 @@ class PostgreSQL():
                  pw: str = "password1",
                  host: str = "localhost",
                  port: int = 5432,
-                 sslmode: Union[bool, str] = False,
+                 sslmode: str = None,
                  super_db: str = "postgres",
                  super_un: str = "postgres",
                  super_pw: str = "password2",
@@ -450,7 +450,7 @@ class PostgreSQL():
         self._print(2, f"Exporting {self.DATABASE} to {sql_file}")
 
         system_call = f'pg_dump {self.uri()} > "{sql_file}" '
-        os.system(system_call)
+        subprocess.run(system_call)
 
         return sql_file
 
@@ -480,7 +480,7 @@ class PostgreSQL():
         self._print(2, f"Loading {self.DATABASE} from {sql_dump_filepath}")
 
         system_command = f'psql "{self.uri()}" <  "{sql_dump_filepath}"'
-        os.system(system_command)
+        subprocess.run(system_command)
 
     # LISTS of things inside this database (or the cluster at large)
     # --------------------------------------------------------------
@@ -1004,7 +1004,7 @@ class PostgreSQL():
     def pgsql2shp(self,
                   table_name: str,
                   output_folder: Path = None,
-                  extra_args: list(tuple) = None) -> Path:
+                  extra_args: list() = None) -> Path:
         """
         Use the command-line ``pgsql2shp`` utility.
 
@@ -1058,7 +1058,7 @@ class PostgreSQL():
         # Finish the command by adding the DB and table names
         cmd += f" {self.DATABASE} {table_name}"
 
-        os.system(cmd)
+        subprocess.call(cmd, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
         self._print(2, cmd)
         self._print(2, f"Exported {table_name} to {output_file}")
@@ -1067,44 +1067,33 @@ class PostgreSQL():
 
     def shp2pgsql(self,
                   table_name: str,
-                  src_shapefile: Path = None,
-                  new_epsg: int = None,
-                  extra_args: list(tuple) = None) -> Path:
+                  src_shapefile: Path,
+                  new_epsg: int = None):
+
+        shapefile_without_extension = str(src_shapefile).replace(".shp", "")
+
+        cmd_list = ["shp2pgsql", "-d", "-e", "-I", "-S"]
 
         # Start out the command
-        cmd = f'pgsql2shp "{src_shapefile}" {table_name}'
+        # cmd = f'shp2pgsql -d -e -I -S'
 
         # Use geopandas to figure out the source EPSG
+        cmd_list.append("-s")
         src_epsg = gpd.read_file(src_shapefile).crs.to_epsg()
         if new_epsg:
-            epsg_cmd = f" -s {src_epsg}:{new_epsg}"
+            cmd_list.append(f"{src_epsg}:{new_epsg}")
+        else:
+            cmd_list.append(f"{src_epsg}")
 
+        cmd_list.append(shapefile_without_extension)
+        cmd_list.append(table_name)
 
+        cmd_list.append("|")
+        cmd_list.append("psql")
+        cmd_list.append(self.uri())
 
-        # # Add the default arguments needed for connecting
-        # required_args = [
-        #     ("-h", self.HOST),
-        #     ("-p", self.PORT),
-        #     ("-u", self.USER),
-        #     ("-P", self.PASSWORD),
-        # ]
-        # for flag, val in required_args:
-        #     cmd += f" {flag} {val}"
-
-        # # Add any extra arguments passed in by the user
-        # if extra_args:
-        #     for flag, val in extra_args:
-        #         cmd += f" {flag} {val}"
-
-        # # Finish the command by adding the DB and table names
-        # cmd += f" {self.DATABASE} {table_name}"
-
-        # os.system(cmd)
-
-        # self._print(2, cmd)
-        # self._print(2, f"Exported {table_name} to {output_file}")
-
-        # return output_folder / f"{table_name}.shp"
+        subprocess.call(cmd_list, stdout=subprocess.DEVNULL)#, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        return cmd_list.join(" ")
 
     # TRANSFER data to another database
     # ---------------------------------
