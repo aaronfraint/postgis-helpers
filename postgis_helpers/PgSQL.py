@@ -1003,7 +1003,28 @@ class PostgreSQL():
     # ---------------------------------------------
     def pgsql2shp(self,
                   table_name: str,
-                  output_folder: Path = None) -> Path:
+                  output_folder: Path = None,
+                  extra_args: list(tuple) = None) -> Path:
+        """
+        Use the command-line ``pgsql2shp`` utility.
+
+        ``extra_args`` are passed in as ``[(flag1, val1), (flag2, val2)]``
+
+        For example:
+        ``extra_args = [("-g", "custom_geom_column"), ("-b", "")]``
+
+        For more info, see
+        http://www.postgis.net/docs/manual-1.3/ch04.html#id436110
+
+        :param table_name: name of the spatial table to dump
+        :type table_name: str
+        :param output_folder: output folder, defaults to DATA_OUTBOX
+        :type output_folder: Path, optional
+        :param extra_args: [description], defaults to None
+        :type extra_args: list, optional
+        :return: path to the newly created shapefile
+        :rtype: Path
+        """
 
         # Use the default data outbox if none provided
         if not output_folder:
@@ -1016,7 +1037,26 @@ class PostgreSQL():
 
         output_file = output_folder / table_name
 
-        cmd = f'pgsql2shp -f "{output_file}" -h {self.HOST} -p {self.PORT} -u {self.USER} -P {self.PASSWORD} {self.DATABASE} {table_name}'
+        # Start out the command
+        cmd = f'pgsql2shp -f "{output_file}"'
+
+        # Add the default arguments needed for connecting
+        required_args = [
+            ("-h", self.HOST),
+            ("-p", self.PORT),
+            ("-u", self.USER),
+            ("-P", self.PASSWORD),
+        ]
+        for flag, val in required_args:
+            cmd += f" {flag} {val}"
+
+        # Add any extra arguments passed in by the user
+        if extra_args:
+            for flag, val in extra_args:
+                cmd += f" {flag} {val}"
+
+        # Finish the command by adding the DB and table names
+        cmd += f" {self.DATABASE} {table_name}"
 
         os.system(cmd)
 
@@ -1024,6 +1064,47 @@ class PostgreSQL():
         self._print(2, f"Exported {table_name} to {output_file}")
 
         return output_folder / f"{table_name}.shp"
+
+    def shp2pgsql(self,
+                  table_name: str,
+                  src_shapefile: Path = None,
+                  new_epsg: int = None,
+                  extra_args: list(tuple) = None) -> Path:
+
+        # Start out the command
+        cmd = f'pgsql2shp "{src_shapefile}" {table_name}'
+
+        # Use geopandas to figure out the source EPSG
+        src_epsg = gpd.read_file(src_shapefile).crs.to_epsg()
+        if new_epsg:
+            epsg_cmd = f" -s {src_epsg}:{new_epsg}"
+
+
+
+        # # Add the default arguments needed for connecting
+        # required_args = [
+        #     ("-h", self.HOST),
+        #     ("-p", self.PORT),
+        #     ("-u", self.USER),
+        #     ("-P", self.PASSWORD),
+        # ]
+        # for flag, val in required_args:
+        #     cmd += f" {flag} {val}"
+
+        # # Add any extra arguments passed in by the user
+        # if extra_args:
+        #     for flag, val in extra_args:
+        #         cmd += f" {flag} {val}"
+
+        # # Finish the command by adding the DB and table names
+        # cmd += f" {self.DATABASE} {table_name}"
+
+        # os.system(cmd)
+
+        # self._print(2, cmd)
+        # self._print(2, f"Exported {table_name} to {output_file}")
+
+        # return output_folder / f"{table_name}.shp"
 
     # TRANSFER data to another database
     # ---------------------------------
