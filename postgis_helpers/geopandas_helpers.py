@@ -1,6 +1,7 @@
 import pandas as pd
 import geopandas as gpd
 
+
 def spatialize_point_dataframe(df: pd.DataFrame,
                                x_lon_col: str,
                                y_lat_col: str,
