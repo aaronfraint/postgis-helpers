@@ -266,15 +266,16 @@ class PostgreSQL():
 
         :param query: any valid SQL query string
         :type query: str
-        :param super_uri: flag that will execute against the
-                          super db/user, defaults to False
-        :type super_uri: bool, optional
+        :param geom_col: name of the column that holds the geometry,
+                         defaults to 'geom'
+        :type geom_col: str
         :return: geodataframe with the query result
         :rtype: gpd.GeoDataFrame
         """
         connection = psycopg2.connect(self.uri())
 
-        gdf = gpd.GeoDataFrame.from_postgis(query, connection,
+        gdf = gpd.GeoDataFrame.from_postgis(query,
+                                            connection,
                                             geom_col=geom_col)
 
         connection.close()
@@ -374,7 +375,8 @@ class PostgreSQL():
         return connection_string
 
     def exists(self) -> bool:
-        """Does this database exist yet? True or False
+        """
+        Does this database exist yet? Returns True or False
 
         :return: True or False if the database exists on the cluster
         :rtype: bool
@@ -389,7 +391,9 @@ class PostgreSQL():
         return self.query_as_single_item(sql_db_exists, super_uri=True)
 
     def db_create(self) -> None:
-        """Create this database (if it doesn't exist yet)"""
+        """
+        Create this database if it doesn't exist yet
+        """
 
         if self.exists():
             self._print(1, f"Database {self.DATABASE} already exists")
@@ -426,14 +430,14 @@ class PostgreSQL():
             self.execute(sql_drop_db, autocommit=True)
 
     @timer
-    def db_export_pgdump_file(self, output_folder: Union[Path, str]) -> str:
+    def db_export_pgdump_file(self, output_folder: Path) -> Path:
         """
         Save this database to a ``.sql`` file.
         Requires ``pg_dump`` to be accessible via the command line.
 
 
         :param output_folder: Folder path to write .sql file to
-        :type output_folder: Union[Path, str]
+        :type output_folder: pathlib.Path
         :return: Filepath to SQL file that was created
         :rtype: str
         """
@@ -446,18 +450,18 @@ class PostgreSQL():
 
         # Use pg_dump to save the database to disk
         sql_name = f"{self.DATABASE}_d_{today}_t_{timestamp}.sql"
-        sql_file = os.path.join(output_folder, sql_name)
+        sql_file = output_folder / sql_name
 
         self._print(2, f"Exporting {self.DATABASE} to {sql_file}")
 
         system_call = f'pg_dump {self.uri()} > "{sql_file}" '
-        subprocess.run(system_call)
+        os.system(system_call)
 
         return sql_file
 
     @timer
     def db_load_pgdump_file(self,
-                            sql_dump_filepath: Union[Path, str],
+                            sql_dump_filepath: Path,
                             overwrite: bool = True) -> None:
         """
         Populate the database by loading from a SQL file that
@@ -481,13 +485,14 @@ class PostgreSQL():
         self._print(2, f"Loading {self.DATABASE} from {sql_dump_filepath}")
 
         system_command = f'psql "{self.uri()}" <  "{sql_dump_filepath}"'
-        subprocess.run(system_command)
+        os.system(system_command)
 
     # LISTS of things inside this database (or the cluster at large)
     # --------------------------------------------------------------
 
     def all_tables_as_list(self) -> list:
-        """Get a list of all tables in the database
+        """
+        Get a list of all tables in the database
 
         :return: List of tables in the database
         :rtype: list
@@ -504,9 +509,9 @@ class PostgreSQL():
         return [t[0] for t in tables]
 
     def all_spatial_tables_as_dict(self) -> dict:
-        """Get a dictionary of all spatial tables in the database.
-           Return value is formatted as:
-                ``{table_name: epsg}``
+        """
+        Get a dictionary of all spatial tables in the database.
+        Return value is formatted as: ``{table_name: epsg}``
 
         :return: Dictionary with spatial table names as keys
                  and EPSG codes as values.
@@ -523,9 +528,10 @@ class PostgreSQL():
         return {t[0]: t[1] for t in spatial_tables}
 
     def all_databases_on_cluster_as_list(self) -> list:
-        """Get a list of all databases on this SQL cluster.
+        """
+        Get a list of all databases on this SQL cluster.
 
-        :return: List of all databases in the cluster
+        :return: List of all databases on the cluster
         :rtype: list
         """
 
@@ -543,7 +549,8 @@ class PostgreSQL():
     # ----------------------------
 
     def table_columns_as_list(self, table_name: str) -> list:
-        """Get a list of all columns in a table.
+        """
+        Get a list of all columns in a table.
 
         :param table_name: Name of the table
         :type table_name: str
@@ -568,7 +575,9 @@ class PostgreSQL():
                                     table_name: str,
                                     column_name: str,
                                     column_type: str) -> None:
-        """Add a new column to a table. Overwrite to ``NULL`` if it already exists.
+        """
+        Add a new column to a table. 
+        Overwrite to ``NULL`` if it already exists.
 
         :param table_name: Name of the table
         :type table_name: str
@@ -596,7 +605,8 @@ class PostgreSQL():
         self.execute(query)
 
     def table_add_uid_column(self, table_name: str) -> None:
-        """Add a serial primary key column named 'uid' to the table.
+        """
+        Add a serial primary key column named 'uid' to the table.
 
         :param table_name: Name of the table to add a uid column to
         :type table_name: str
@@ -611,7 +621,8 @@ class PostgreSQL():
         self.execute(sql_unique_id_column)
 
     def table_add_spatial_index(self, table_name: str) -> None:
-        """Add a spatial index to the 'geom' column in the table.
+        """
+        Add a spatial index to the 'geom' column in the table.
 
         :param table_name: Name of the table to make the index on
         :type table_name: str
@@ -661,7 +672,8 @@ class PostgreSQL():
         self.execute(sql_transform_geom)
 
     def table_delete(self, table_name: str) -> None:
-        """Delete the table, cascade.
+        """
+        Delete the table, cascade.
 
         :param table_name: Name of the table you want to delete.
         :type table_name: str
@@ -703,7 +715,8 @@ class PostgreSQL():
                          dataframe: pd.DataFrame,
                          table_name: str,
                          if_exists: str = "fail") -> None:
-        """Import an in-memory Pandas dataframe to the SQL database.
+        """
+        Import an in-memory ``pandas.DataFrame`` to the SQL database.
 
         Enforce clean column names (without spaces, caps, or weird symbols).
 
@@ -736,7 +749,8 @@ class PostgreSQL():
                             table_name: str,
                             src_epsg: Union[int, bool] = False,
                             if_exists: str = "replace"):
-        """Import an in-memory Geopands geodataframe to the SQL database.
+        """
+        Import an in-memory ``geopandas.GeoDataFrame`` to the SQL database.
 
         :param gdf: geodataframe with data you want to save
         :type gdf: gpd.GeoDataFrame
@@ -813,15 +827,16 @@ class PostgreSQL():
     @timer
     def import_csv(self,
                    table_name: str,
-                   csv_path: Union[Path, str],
+                   csv_path: Path,
                    if_exists: str = "append",
                    **csv_kwargs):
-        r"""Load a CSV into a dataframe, then save the df to SQL.
+        r"""
+        Load a CSV into a dataframe, then save the df to SQL.
 
         :param table_name: Name of the table you want to create
         :type table_name: str
         :param csv_path: Path to data. Anything accepted by Pandas works here.
-        :type csv_path: Union[Path, str]
+        :type csv_path: Path
         :param if_exists: How to handle overwriting existing data,
                           defaults to ``"append"``
         :type if_exists: str, optional
@@ -838,16 +853,17 @@ class PostgreSQL():
 
     def import_geodata(self,
                        table_name: str,
-                       data_path: Union[Path, str],
+                       data_path: Path,
                        src_epsg: Union[int, bool] = False,
                        if_exists: str = "fail"):
-        """Load geographic data into a geodataframe, then save to SQL.
+        """
+        Load geographic data into a geodataframe, then save to SQL.
 
         :param table_name: Name of the table you want to create
         :type table_name: str
         :param data_path: Path to the data. Anything accepted by Geopandas
                           works here.
-        :type data_path: Union[Path, str]
+        :type data_path: Path
         :param src_epsg: Manually declare the source EPSG if needed,
                          defaults to False
         :type src_epsg: Union[int, bool], optional
@@ -882,6 +898,9 @@ class PostgreSQL():
                                  new_table_name: str,
                                  geom_type: str,
                                  epsg: int) -> None:
+        """
+        TODO: docstring
+        """
 
         self._print(2, f"Making new geotable in DB : {new_table_name}")
 
@@ -889,7 +908,7 @@ class PostgreSQL():
                             "POLYGON", "MULTIPOLYGON",
                             "LINESTRING", "MULTILINESTRING"]
 
-        if geom_type not in valid_geom_types:
+        if geom_type.upper() not in valid_geom_types:
             for msg in [
                 f"Geometry type of {geom_type} is not valid.",
                 f"Please use one of the following: {valid_geom_types}",
@@ -909,7 +928,8 @@ class PostgreSQL():
         self.table_add_uid_column(new_table_name)
         self.table_add_spatial_index(new_table_name)
         self.table_reproject_spatial_data(new_table_name,
-                                          epsg, epsg, geom_type=geom_type)
+                                          epsg, epsg,
+                                          geom_type=geom_type.upper())
 
     def make_hexagon_overlay(self,
                              new_table_name: str,
@@ -917,9 +937,10 @@ class PostgreSQL():
                              desired_epsg: int,
                              hexagon_size: float,
                              ) -> None:
-        """Create a new spatial hexagon grid covering another
-           spatial table. EPSG must be specified for the hexagons,
-           as well as the size in square KM.
+        """
+        Create a new spatial hexagon grid covering another
+        spatial table. EPSG must be specified for the hexagons,
+        as well as the size in square KM.
 
         :param new_table_name: Name of the new table to create
         :type new_table_name: str
@@ -973,8 +994,8 @@ class PostgreSQL():
     @timer
     def export_shapefile(self,
                          table_name: str,
-                         output_folder: Union[Path, str],
-                         where_clause: Union[str, bool] = False
+                         output_folder: Path,
+                         where_clause: str = None
                          ) -> gpd.GeoDataFrame:
         """Save a spatial SQL table to shapefile.
            Add an optional filter with the ``where_clause``:
@@ -983,9 +1004,9 @@ class PostgreSQL():
         :param table_name: Name of the table to export
         :type table_name: str
         :param output_folder: Folder path to write to
-        :type output_folder: Union[Path, str]
+        :type output_folder: Path
         :param where_clause: Any valid SQL where clause, defaults to False
-        :type where_clause: Union[str, bool], optional
+        :type where_clause: str, optional
         """
 
         self._print(2, "Exporting {table_name} to shapefile")
@@ -1012,11 +1033,12 @@ class PostgreSQL():
         return gdf
 
     def export_all_shapefiles(self,
-                              output_folder: Union[Path, str]) -> None:
-        """Save all spatial tables in the database to shapefile.
+                              output_folder: Path) -> None:
+        """
+        Save all spatial tables in the database to shapefile.
 
         :param output_folder: Folder path to write to
-        :type output_folder: Union[Path, str]
+        :type output_folder: Path
         """
 
         for table in self.all_spatial_tables_as_dict():
@@ -1027,11 +1049,14 @@ class PostgreSQL():
     def pgsql2shp(self,
                   table_name: str,
                   output_folder: Path = None,
-                  extra_args: list() = None) -> Path:
+                  extra_args: list = None) -> Path:
         """
         Use the command-line ``pgsql2shp`` utility.
 
-        ``extra_args`` are passed in as ``[(flag1, val1), (flag2, val2)]``
+        TODO: check if pgsql2shp exists and exit early if not
+
+        ``extra_args`` is a list of tuples, passed in as
+        ``[(flag1, val1), (flag2, val2)]``
 
         For example:
         ``extra_args = [("-g", "custom_geom_column"), ("-b", "")]``
@@ -1091,10 +1116,23 @@ class PostgreSQL():
     def shp2pgsql(self,
                   table_name: str,
                   src_shapefile: Path,
-                  new_epsg: int = None):
+                  new_epsg: int = None) -> str:
+        """
+        TODO: Docstring
+
+        :param table_name: [description]
+        :type table_name: str
+        :param src_shapefile: [description]
+        :type src_shapefile: Path
+        :param new_epsg: [description], defaults to None
+        :type new_epsg: int, optional
+        :return: [description]
+        :rtype: str
+        """
 
         shapefile_without_extension = str(src_shapefile).replace(".shp", "")
 
+        # TODO: document default settings
         cmd = "shp2pgsql -d -e -I -S"
 
         # Use geopandas to figure out the source EPSG
@@ -1137,54 +1175,54 @@ class PostgreSQL():
             df = self.query_as_df(query)
             other_postgresql_db.import_dataframe(df, table_name)
 
-    # CLASS-level helper functions
-    @classmethod
-    def create_object_from_uri(cls,
-                               uri: str,
-                               verbosity: str = "full",
-                               super_db: str = "postgres"):
-        """
-        Create a ``PostgreSQL`` object from a URI. Note that
-        this process must make assumptions about the super-user
-        of the database. Proceed with caution.
 
-        :param uri: database connection string
-        :type uri: str
-        :param verbosity: level of printout desired, defaults to "full"
-        :type verbosity: str, optional
-        :param super_db: name of the SQL cluster master DB,
-                         defaults to "postgres"
-        :type super_db: str, optional
-        :return: ``PostgreSQL()`` object
-        :rtype: PostgreSQL
-        """
+def connect_via_uri(uri: str,
+                    verbosity: str = "full",
+                    super_db: str = "postgres"):
+    """
+    Create a ``PostgreSQL`` object from a URI. Note that
+    this process must make assumptions about the super-user
+    of the database. Proceed with caution.
 
-        uri_list = uri.split("?")
-        base_uri = uri_list[0]
+    :param uri: database connection string
+    :type uri: str
+    :param verbosity: level of printout desired, defaults to "full"
+    :type verbosity: str, optional
+    :param super_db: name of the SQL cluster master DB,
+                        defaults to "postgres"
+    :type super_db: str, optional
+    :return: ``PostgreSQL()`` object
+    :rtype: PostgreSQL
+    """
 
-        # Break off the ?sslmode section
-        if len(uri_list) > 1:
-            sslmode = uri_list[1]
-        else:
-            sslmode = False
+    uri_list = uri.split("?")
+    base_uri = uri_list[0]
 
-        # Get rid of postgresql://
-        base_uri = base_uri.replace(r"postgresql://", "")
+    # Break off the ?sslmode section
+    if len(uri_list) > 1:
+        sslmode = uri_list[1]
+    else:
+        sslmode = False
 
-        # Split values up to get component parts
-        un_pw, host_port_db = base_uri.split("@")
-        username, password = un_pw.split(":")
-        host, port_db = host_port_db.split(":")
-        port, db_name = port_db.split(r"/")
+    # Get rid of postgresql://
+    base_uri = base_uri.replace(r"postgresql://", "")
 
-        values = {"host": host,
-                  "un": username,
-                  "pw": password,
-                  "port": port,
-                  "sslmode": sslmode,
-                  "verbosity": "full",
-                  "super_db": super_db,
-                  "super_un": username,
-                  "super_pw": password}
+    # Split values up to get component parts
+    un_pw, host_port_db = base_uri.split("@")
+    username, password = un_pw.split(":")
+    host, port_db = host_port_db.split(":")
+    port, db_name = port_db.split(r"/")
 
-        return cls(db_name, **values)
+    values = {
+        "host": host,
+        "un": username,
+        "pw": password,
+        "port": port,
+        "sslmode": sslmode,
+        "verbosity": "full",
+        "super_db": super_db,
+        "super_un": username,
+        "super_pw": password
+    }
+
+    return PostgreSQL(db_name, **values)
