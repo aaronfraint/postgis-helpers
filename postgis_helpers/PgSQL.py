@@ -29,8 +29,8 @@ from .sql_helpers import sql_hex_grid_function_definition
 from .general_helpers import now, report_time_delta
 from .geopandas_helpers import spatialize_point_dataframe
 
-DEFAULT_DATA_INBOX = Path.home() / "postgis_helpers" / "data_inbox"
-DEFAULT_DATA_OUTBOX = Path.home() / "postgis_helpers" / "data_outbox"
+DEFAULT_DATA_INBOX = Path.home() / "postgis_helpers_data" / "data_inbox"
+DEFAULT_DATA_OUTBOX = Path.home() / "postgis_helpers_data" / "data_outbox"
 
 
 class PostgreSQL():
@@ -98,7 +98,7 @@ class PostgreSQL():
 
         for folder in [data_inbox, data_outbox]:
             if not folder.exists():
-                folder.mkdir()
+                folder.mkdir(parents=True)
 
         self.DATA_INBOX = data_inbox
         self.DATA_OUTBOX = data_outbox
