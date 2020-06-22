@@ -430,7 +430,7 @@ class PostgreSQL():
             self.execute(sql_drop_db, autocommit=True)
 
     @timer
-    def db_export_pgdump_file(self, output_folder: Path) -> Path:
+    def db_export_pgdump_file(self, output_folder: Path = None) -> Path:
         """
         Save this database to a ``.sql`` file.
         Requires ``pg_dump`` to be accessible via the command line.
@@ -441,6 +441,9 @@ class PostgreSQL():
         :return: Filepath to SQL file that was created
         :rtype: str
         """
+
+        if not output_folder:
+            output_folder = self.DATA_OUTBOX
 
         # Get a string for today's date and time,
         # like '2020_06_10' and '14_13_38'
