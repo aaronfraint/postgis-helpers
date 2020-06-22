@@ -9,6 +9,6 @@ setup(
     license='MIT',
     entry_points="""
         [console_scripts]
-        export_all_dbs_on_host=postgis_helpers.procedures.export_all_dbs_on_host:back_up_entire_cluster
+        pGIS=postgis_helpers.cli:main
     """,
 )
