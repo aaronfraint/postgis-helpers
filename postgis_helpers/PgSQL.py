@@ -113,7 +113,7 @@ class PostgreSQL():
         if not self.exists():
             self.db_create()
 
-        self._print(2, f"{self.DATABASE} @ {self.HOST}")
+        self._print(3, f"{self.DATABASE} @ {self.HOST}")
 
     def connection_details(self) -> dict:
         """
@@ -160,13 +160,15 @@ class PostgreSQL():
 
         print_out = False
 
-        prefix = r"pGIS --> "
-        prefix_as_spaces = " " * len(prefix)
+        if level == 1:
+            prefix = "\t\t - "
+        elif level == 2:
+            prefix = "\t ⇨ "
+        elif level == 3:
+            prefix = "⫸⫸⫸ "
 
         if self.VERBOSITY == "full" and level in [1, 2, 3]:
             print_out = True
-            if level == 1:
-                prefix = prefix_as_spaces
 
         elif self.VERBOSITY == "minimal" and level in [2, 3]:
             print_out = True
@@ -195,7 +197,7 @@ class PostgreSQL():
             end_time = now()
 
             # Print runtime out when "full"
-            runtime_msg = f"\t {report_time_delta(start_time, end_time)}"
+            runtime_msg = report_time_delta(start_time, end_time)
             self._print(1, runtime_msg)
 
             return function_return_value
