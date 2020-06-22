@@ -29,8 +29,7 @@ from .sql_helpers import sql_hex_grid_function_definition
 from .general_helpers import now, report_time_delta
 from .geopandas_helpers import spatialize_point_dataframe
 
-DEFAULT_DATA_INBOX = Path.home() / "postgis_helpers_data" / "data_inbox"
-DEFAULT_DATA_OUTBOX = Path.home() / "postgis_helpers_data" / "data_outbox"
+from .config_helpers import DEFAULT_DATA_INBOX, DEFAULT_DATA_OUTBOX
 
 
 class PostgreSQL():

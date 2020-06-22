@@ -3,7 +3,7 @@ import zipfile
 import io
 from pathlib import Path
 
-DATA_ROOT = Path.home() / "sql_data_io"
+from .config_helpers import DEFAULT_DATA_INBOX, DEFAULT_DATA_OUTBOX
 
 
 class DataSource():
@@ -28,16 +28,16 @@ class DataSource():
         #   - If the data has a URL, it will be downloaded into here
         #   - Otherwise, manually place the data into this folder
         if not import_folder:
-            self.IMPORT_FOLDER = DATA_ROOT / "import" / sql_table_name
+            self.IMPORT_FOLDER = DEFAULT_DATA_INBOX / sql_table_name
         else:
-            self.IMPORT_FOLDER = import_folder / "import" / sql_table_name
+            self.IMPORT_FOLDER = import_folder / "inbox" / sql_table_name
 
         # EXPORT FOLDER
         #   - Save here when exporting from SQL
         if not export_folder:
-            self.EXPORT_FOLDER = DATA_ROOT / "export" / sql_table_name
+            self.EXPORT_FOLDER = DEFAULT_DATA_OUTBOX / sql_table_name
         else:
-            self.EXPORT_FOLDER = export_folder / "export" / sql_table_name
+            self.EXPORT_FOLDER = export_folder / "outbox" / sql_table_name
 
     def filepath_import(self):
         """ Filepath that will be used to LOAD INTO SQL """
