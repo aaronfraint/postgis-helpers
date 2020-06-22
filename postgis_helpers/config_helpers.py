@@ -10,6 +10,9 @@ import os
 import configparser
 from pathlib import Path
 
+DATA_ROOT = Path.home() / "sql_data_io"
+DEFAULT_DATA_INBOX = DATA_ROOT / "inbox"
+DEFAULT_DATA_OUTBOX = DATA_ROOT / "outbox"
 
 starter_config_file = """
 [DEFAULT]
