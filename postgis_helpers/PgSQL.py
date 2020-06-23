@@ -163,9 +163,9 @@ class PostgreSQL():
         if level == 1:
             prefix = "\t\t - "
         elif level == 2:
-            prefix = "\t ⇨ "
+            prefix = "\t -> "
         elif level == 3:
-            prefix = "⫸⫸⫸ "
+            prefix = " * "
 
         if self.VERBOSITY == "full" and level in [1, 2, 3]:
             print_out = True

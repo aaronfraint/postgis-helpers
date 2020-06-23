@@ -34,4 +34,4 @@ def report_time_delta(start_time: datetime.datetime,
 
     hms, milisec = str(end_time - start_time).split(".")
 
-    return "⌛️: " + hms + "." + milisec[:3]
+    return "Runtime = " + hms + "." + milisec[:3]
