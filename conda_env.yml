@@ -1,0 +1,15 @@
+name: pGIS
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8*
+  - pyproj
+  - geopandas
+  - psycopg2
+  - geoalchemy2
+  - ipython
+  - jupyter
+  - click
+  - pip
+  - pip:
+      - git+https://github.com/aaronfraint/postgis-helpers.git
