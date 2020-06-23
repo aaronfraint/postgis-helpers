@@ -6,6 +6,14 @@ from postgis_helpers.config_helpers import configurations, make_config_file, DB_
 
 @click.group()
 def main():
+    """ pGIS is a command-line utility for interacting
+    with the postgis_helpers Python package.
+
+    To get more information on a particular command,
+    type: pGIS COMMAND --help
+
+    All available commands are shown below.
+    """
     pass
 
 
@@ -25,6 +33,7 @@ def main():
     is_flag=True,
 )
 def configure_databases(filepath, overwrite):
+    """ Create a new config file to define database connection parameters. """
 
     make_config_file(filepath=filepath, overwrite=overwrite)
     click.echo(f"\n -> Configure your database connections at {filepath}")
@@ -112,9 +121,6 @@ def backup_single_database(database_name, host, folder):
         if dbname != super_db_name:
             db = PostgreSQL(dbname, **this_cluster)
             db.db_export_pgdump_file(output_folder)
-
-
-
 
 
 if __name__ == "__main__":
