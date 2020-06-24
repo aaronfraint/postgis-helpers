@@ -172,17 +172,17 @@ class PostgreSQL():
         print_out = False
 
         if level == 1:
-            prefix = "\t\t - "
-            style = Style(color="yellow", italic=True)
+            prefix = "\t - "
+            style = Style()
 
         elif level == 2:
-            prefix = "\t -> "
-            style = Style(color="green", blink2=True)
+            prefix = ":backhand_index_pointing_right: "
+            style = Style()
 
         elif level == 3:
-            prefix = " * "
+            prefix = " :electric_plug: "#" :person_surfing::water_wave: "
             # style.color = "blue"
-            style = Style(color="blue", bold=True)
+            style = Style(color="green4", bold=True)
 
         if self.VERBOSITY == "full" and level in [1, 2, 3]:
             print_out = True
