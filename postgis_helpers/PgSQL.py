@@ -25,6 +25,9 @@ from geoalchemy2 import Geometry, WKTElement
 from typing import Union
 from pathlib import Path
 
+from rich.console import Console
+from rich.style import Style
+
 from .sql_helpers import sql_hex_grid_function_definition
 from .general_helpers import now, report_time_delta
 from .geopandas_helpers import spatialize_point_dataframe
@@ -57,7 +60,8 @@ class PostgreSQL():
                  super_pw: str = "password2",
                  verbosity: str = "full",
                  data_inbox: Path = DEFAULT_DATA_INBOX,
-                 data_outbox: Path = DEFAULT_DATA_OUTBOX):
+                 data_outbox: Path = DEFAULT_DATA_OUTBOX,
+                 console: Console = None):
         """
         Initialize a database object with placeholder values.
 
@@ -83,6 +87,8 @@ class PostgreSQL():
                           defaults to ``"full"``. Other options include
                           ``"minimal"`` and ``"errors"``
         :type verbosity: str, optional
+
+        TODO: add data box and print style params
         """
 
         self.DATABASE = working_db
@@ -94,6 +100,11 @@ class PostgreSQL():
         self.SUPER_DB = super_db
         self.SUPER_USER = super_un
         self.SUPER_PASSWORD = super_pw
+
+        if not console:
+            self.console = Console()
+        else:
+            self.console = console
 
         for folder in [data_inbox, data_outbox]:
             if not folder.exists():
@@ -162,10 +173,16 @@ class PostgreSQL():
 
         if level == 1:
             prefix = "\t\t - "
+            style = Style(color="yellow", italic=True)
+
         elif level == 2:
             prefix = "\t -> "
+            style = Style(color="green", blink2=True)
+
         elif level == 3:
             prefix = " * "
+            # style.color = "blue"
+            style = Style(color="blue", bold=True)
 
         if self.VERBOSITY == "full" and level in [1, 2, 3]:
             print_out = True
@@ -178,7 +195,8 @@ class PostgreSQL():
 
         if print_out:
             msg = prefix + message
-            print(msg)
+
+            self.console.print(msg, style=style)
 
     def timer(func):
         """
@@ -542,7 +560,8 @@ class PostgreSQL():
         sql_all_databases = f"""
             SELECT datname FROM pg_database
             WHERE datistemplate = false
-                AND datname != '{self.SUPER_DB}';
+                AND datname != '{self.SUPER_DB}'
+                AND LEFT(datname, 1) != '_';
         """
 
         database_list = self.query_as_list(sql_all_databases, super_uri=True)
