@@ -1,5 +1,9 @@
 from pathlib import Path
 import click
+
+from rich.progress import Progress
+from rich.console import Console
+
 from postgis_helpers.PgSQL import PostgreSQL
 from postgis_helpers.config_helpers import configurations, make_config_file, DB_CONFIG_FILEPATH
 
@@ -75,10 +79,25 @@ def backup_all_databases(host, folder):
         output_folder.mkdir(parents=True)
 
     # Loop through all dbs on cluster, exporting all except the super db
-    for dbname in super_db.all_databases_on_cluster_as_list():
-        if dbname != super_db_name:
-            db = PostgreSQL(dbname, **this_cluster)
-            db.db_export_pgdump_file(output_folder)
+    all_dbs = super_db.all_databases_on_cluster_as_list()
+
+    console = Console()
+
+    with Progress(transient=True, console=console) as progress:
+        task = progress.add_task(total=len(all_dbs), description='EXPORTING')
+        for dbname in all_dbs:
+            if dbname != super_db_name:
+                db = PostgreSQL(dbname, console=console, **this_cluster)
+                db.db_export_pgdump_file(output_folder)
+
+                progress.advance(task)
+
+    # with click.progressbar(all_dbs, label="exporting") as bar:
+    #     for dbname in bar:
+    #         if dbname != super_db_name:
+    #             db = PostgreSQL(dbname, **this_cluster)
+    #             db.db_export_pgdump_file(output_folder)
+
 
 
 # BACK UP A SINGLE DATABASE
