@@ -14,6 +14,7 @@ TODO: update this with new features
 import configparser
 from pathlib import Path
 from typing import Union
+from rich import print
 
 DATA_ROOT = Path.home() / "sql_data_io"
 DEFAULT_DATA_INBOX = DATA_ROOT / "inbox"
@@ -51,8 +52,12 @@ def make_config_file(filepath: Union[Path, str] = DB_CONFIG_FILEPATH,
 
     filepath = Path(filepath)
 
+    # Make sure the parent fiolder exists
+    if not filepath.parent.exists():
+        filepath.parent.mkdir(parents=True)
+
     if not overwrite and filepath.exists():
-        print(f"\n -> overwrite=False and {filepath} exists. Will not overwrite.")
+        print(f"\n -> {filepath} already exists and overwrite=False. Will not overwrite.")
         return False
 
     else:
