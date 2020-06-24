@@ -1,6 +1,7 @@
 from pathlib import Path
 import click
 
+from rich import print
 from rich.progress import Progress
 from rich.console import Console
 
@@ -40,7 +41,7 @@ def configure_databases(filepath, overwrite):
     """ Create a new config file to define database connection parameters. """
 
     make_config_file(filepath=filepath, overwrite=overwrite)
-    click.echo(f"\n -> Configure your database connections at {filepath}")
+    print(f"\n -> Configure your database connections at {filepath}")
 
 
 # BACK UP ALL DATABASES ON A GIVEN HOST
@@ -63,7 +64,7 @@ def backup_all_databases(host, folder):
     HOST defaults to localhost
     """
 
-    click.echo(f"\n -> Backing up databases on: {host}")
+    print(f"\n -> Backing up databases on: {host}")
 
     # Connect to the cluster's master database
     this_cluster = configurations()[host]
@@ -83,21 +84,17 @@ def backup_all_databases(host, folder):
 
     console = Console()
 
-    with Progress(transient=True, console=console) as progress:
-        task = progress.add_task(total=len(all_dbs), description='EXPORTING')
+    with Progress(console=console) as progress:
+        task = progress.add_task(
+                total=len(all_dbs),
+                description=f'Exporting {len(all_dbs)} databases'
+        )
         for dbname in all_dbs:
             if dbname != super_db_name:
                 db = PostgreSQL(dbname, console=console, **this_cluster)
                 db.db_export_pgdump_file(output_folder)
 
                 progress.advance(task)
-
-    # with click.progressbar(all_dbs, label="exporting") as bar:
-    #     for dbname in bar:
-    #         if dbname != super_db_name:
-    #             db = PostgreSQL(dbname, **this_cluster)
-    #             db.db_export_pgdump_file(output_folder)
-
 
 
 # BACK UP A SINGLE DATABASE
@@ -120,7 +117,7 @@ def backup_single_database(database_name, host, folder):
     FOLDER will be the default data outbox unless specified
     """
 
-    click.echo(f"\n -> Backing up {database_name} from {host}")
+    print(f"\n -> Backing up {database_name} from {host}")
 
     # Connect to the cluster's master database
     this_cluster = configurations()[host]
