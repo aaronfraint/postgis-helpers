@@ -14,7 +14,8 @@ TODO: update this with new features
 import configparser
 from pathlib import Path
 from typing import Union
-from rich import print
+
+from .console import _console
 
 DATA_ROOT = Path.home() / "sql_data_io"
 DEFAULT_DATA_INBOX = DATA_ROOT / "inbox"
@@ -57,14 +58,14 @@ def make_config_file(filepath: Union[Path, str] = DB_CONFIG_FILEPATH,
         filepath.parent.mkdir(parents=True)
 
     if not overwrite and filepath.exists():
-        print(f"\n -> {filepath} already exists and overwrite=False. Will not overwrite.")
+        _console.print(f":eyes: Config file already exists and overwrite=False. Will not overwrite.")
         return False
 
     else:
         if filepath.exists():
-            print(f"\n -> Overwriting config file at {filepath}")
+            _console.print(f":fast-forward_button: Overwriting config file at {filepath}")
         else:
-            print(f"\n -> Creating a new config file at {filepath}")
+            _console.print(f":play_button: Creating a new config file at {filepath}")
 
         with open(filepath, "w") as open_file:
             open_file.write(STARTER_CONFIG_FILE)
@@ -87,7 +88,7 @@ def read_config_file(filepath: Path = DB_CONFIG_FILEPATH) -> dict:
 
             all_hosts[host][key] = value
 
-    print(f"Loaded db configurations from {filepath}")
+    _console.print(f"Loaded db configurations from {filepath}")
 
     return all_hosts
 
