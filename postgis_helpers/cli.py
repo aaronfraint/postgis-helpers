@@ -1,12 +1,13 @@
-from pathlib import Path
 import click
-
-from rich import print
-from rich.progress import Progress
-from rich.console import Console
+from pathlib import Path
 
 from postgis_helpers.PgSQL import PostgreSQL
-from postgis_helpers.config_helpers import configurations, make_config_file, DB_CONFIG_FILEPATH
+from postgis_helpers.config_helpers import (
+    configurations,
+    make_config_file,
+    DB_CONFIG_FILEPATH
+)
+from postgis_helpers.console import _console, RichProgress
 
 
 @click.group()
@@ -37,11 +38,11 @@ def main():
     help="Flag that will allow overwriting an existing configuration file",
     is_flag=True,
 )
-def configure_databases(filepath, overwrite):
+def init(filepath, overwrite):
     """ Create a new config file to define database connection parameters. """
 
     make_config_file(filepath=filepath, overwrite=overwrite)
-    print(f"\n -> Configure your database connections at {filepath}")
+    _console.print(f":bottle_with_popping_cork: You can now configure your PgSQL connections at {filepath}")
 
 
 # BACK UP ALL DATABASES ON A GIVEN HOST
@@ -54,7 +55,7 @@ def configure_databases(filepath, overwrite):
     "--folder", "-f",
     help="Folder where the output SQL files will be stored."
 )
-def backup_all_databases(host, folder):
+def db_backup_all(host, folder):
     """Back all databases up on a given HOST
     using PostgreSQL().db_export_pgdump_file()
 
@@ -64,7 +65,7 @@ def backup_all_databases(host, folder):
     HOST defaults to localhost
     """
 
-    print(f"\n -> Backing up databases on: {host}")
+    _console.print(f":direct_hit: Backing up databases on: {host}")
 
     # Connect to the cluster's master database
     this_cluster = configurations()[host]
@@ -82,16 +83,14 @@ def backup_all_databases(host, folder):
     # Loop through all dbs on cluster, exporting all except the super db
     all_dbs = super_db.all_databases_on_cluster_as_list()
 
-    console = Console()
-
-    with Progress(console=console) as progress:
+    with RichProgress(console=_console) as progress:
         task = progress.add_task(
                 total=len(all_dbs),
-                description=f'Exporting {len(all_dbs)} databases'
+                description=f'Exporting {len(all_dbs)} dbs'
         )
         for dbname in all_dbs:
             if dbname != super_db_name:
-                db = PostgreSQL(dbname, console=console, **this_cluster)
+                db = PostgreSQL(dbname, **this_cluster)
                 db.db_export_pgdump_file(output_folder)
 
                 progress.advance(task)
@@ -108,7 +107,7 @@ def backup_all_databases(host, folder):
     "--folder", "-f",
     help="Folder where the output SQL file will be stored."
 )
-def backup_single_database(database_name, host, folder):
+def db_backup_single(database_name, host, folder):
     """Back up DATABASE_NAME from HOST (to an optional FOLDER)
 
     HOST can be any named profile in the configuration
@@ -117,7 +116,7 @@ def backup_single_database(database_name, host, folder):
     FOLDER will be the default data outbox unless specified
     """
 
-    print(f"\n -> Backing up {database_name} from {host}")
+    _console.print(f":direct_hit: Backing up {database_name} from {host}")
 
     # Connect to the cluster's master database
     this_cluster = configurations()[host]
