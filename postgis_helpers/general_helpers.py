@@ -34,4 +34,13 @@ def report_time_delta(start_time: datetime.datetime,
 
     hms, milisec = str(end_time - start_time).split(".")
 
-    return ":hourglass_done: = " + hms + "." + milisec[:2]
+    return "runtime = " + hms + "." + milisec[:2]
+
+
+def dt_as_time(dt: datetime.datetime) -> str:
+    h, m, s = dt.strftime('%H:%M:%s').split(":")
+
+    # Put a decimal into the seconds and truncate to 2 places
+    s = s[:2] + "." + s[2:4]
+
+    return f"{h}:{m}:{s}"
