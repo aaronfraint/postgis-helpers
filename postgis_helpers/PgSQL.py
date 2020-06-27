@@ -25,13 +25,12 @@ from geoalchemy2 import Geometry, WKTElement
 from typing import Union
 from pathlib import Path
 
-from rich.console import Console
-from rich.style import Style
+
 
 from .sql_helpers import sql_hex_grid_function_definition
-from .general_helpers import now, report_time_delta
+from .general_helpers import now, report_time_delta, dt_as_time
 from .geopandas_helpers import spatialize_point_dataframe
-
+from .console import _console, RichStyle, RichSyntax
 from .config_helpers import DEFAULT_DATA_INBOX, DEFAULT_DATA_OUTBOX
 
 
@@ -60,8 +59,7 @@ class PostgreSQL():
                  super_pw: str = "password2",
                  verbosity: str = "full",
                  data_inbox: Path = DEFAULT_DATA_INBOX,
-                 data_outbox: Path = DEFAULT_DATA_OUTBOX,
-                 console: Console = None):
+                 data_outbox: Path = DEFAULT_DATA_OUTBOX):
         """
         Initialize a database object with placeholder values.
 
@@ -101,11 +99,6 @@ class PostgreSQL():
         self.SUPER_USER = super_un
         self.SUPER_PASSWORD = super_pw
 
-        if not console:
-            self.console = Console()
-        else:
-            self.console = console
-
         for folder in [data_inbox, data_outbox]:
             if not folder.exists():
                 folder.mkdir(parents=True)
@@ -124,7 +117,8 @@ class PostgreSQL():
         if not self.exists():
             self.db_create()
 
-        self._print(3, f"{self.DATABASE} @ {self.HOST}")
+        msg = f":person_surfing::water_wave: {self.DATABASE} @ {self.HOST} :water_wave::water_wave:"
+        self._print(3, msg)
 
     def connection_details(self) -> dict:
         """
@@ -172,17 +166,17 @@ class PostgreSQL():
         print_out = False
 
         if level == 1:
-            prefix = "\t - "
-            style = Style()
+            prefix = "\t"
+            style = RichStyle()
 
         elif level == 2:
             prefix = ":backhand_index_pointing_right: "
-            style = Style()
+            style = RichStyle()
 
         elif level == 3:
-            prefix = " :electric_plug: "#" :person_surfing::water_wave: "
+            prefix = ""
             # style.color = "blue"
-            style = Style(color="green4", bold=True)
+            style = RichStyle(color="green4", bold=True)
 
         if self.VERBOSITY == "full" and level in [1, 2, 3]:
             print_out = True
@@ -194,9 +188,14 @@ class PostgreSQL():
             print_out = True
 
         if print_out:
-            msg = prefix + message
+            if type(message) == str:
+                msg = prefix + message
+                _console.print(msg, style=style)
+            elif type(message) == RichSyntax:
+                _console.print(message)
+            else:
+                _console.print(f"Type error: {type(message)}")
 
-            self.console.print(msg, style=style)
 
     def timer(func):
         """
@@ -210,11 +209,17 @@ class PostgreSQL():
         def magic(self, *args, **kwargs):
             start_time = now()
 
+            msg = f":hourglass_not_done: starting @ {dt_as_time(start_time)}"
+            self._print(1, msg)
+
             function_return_value = func(self, *args, **kwargs)
 
             end_time = now()
 
             # Print runtime out when "full"
+            msg = f":hourglass_done: finished @ {dt_as_time(end_time)}"
+            self._print(1, msg)
+
             runtime_msg = report_time_delta(start_time, end_time)
             self._print(1, runtime_msg)
 
@@ -238,7 +243,10 @@ class PostgreSQL():
         :return: list with each item being a row from the query result
         :rtype: list
         """
-
+        self._print(1, "... querying ...")
+        code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
+        self._print(1, code_w_highlight)
+        
         uri = self.uri(super_uri=super_uri)
 
         connection = psycopg2.connect(uri)
@@ -269,6 +277,10 @@ class PostgreSQL():
         :rtype: pd.DataFrame
         """
 
+        self._print(1, "... querying ...")
+        code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
+        self._print(1, code_w_highlight)
+
         uri = self.uri(super_uri=super_uri)
 
         engine = sqlalchemy.create_engine(uri)
@@ -291,6 +303,11 @@ class PostgreSQL():
         :return: geodataframe with the query result
         :rtype: gpd.GeoDataFrame
         """
+        self._print(1, "... querying ...")
+        code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
+        self._print(1, code_w_highlight)
+
+
         connection = psycopg2.connect(self.uri())
 
         gdf = gpd.GeoDataFrame.from_postgis(query,
@@ -316,6 +333,10 @@ class PostgreSQL():
         :return: result from the query
         :rtype: singleton
         """
+        self._print(1, "... querying ...")
+        code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
+        self._print(1, code_w_highlight)
+
 
         result = self.query_as_list(query, super_uri=super_uri)
 
@@ -340,8 +361,10 @@ class PostgreSQL():
         """
 
         self._print(1, "... executing ...")
+
         if len(query) < 5000:
-            self._print(1, "\t " + query)
+            code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
+            self._print(1, code_w_highlight)
 
         uri = self.uri(super_uri=autocommit)
 
