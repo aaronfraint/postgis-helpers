@@ -12,4 +12,5 @@ dependencies:
   - click
   - pip
   - pip:
+      - rich
       - git+https://github.com/aaronfraint/postgis-helpers.git
