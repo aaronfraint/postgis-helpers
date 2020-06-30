@@ -8,6 +8,7 @@ coverage
 flake8
 ward
 click
+rich
 
 pandas
 geopandas
