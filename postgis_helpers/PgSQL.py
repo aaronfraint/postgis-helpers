@@ -25,8 +25,6 @@ from geoalchemy2 import Geometry, WKTElement
 from typing import Union
 from pathlib import Path
 
-
-
 from .sql_helpers import sql_hex_grid_function_definition
 from .general_helpers import now, report_time_delta, dt_as_time
 from .geopandas_helpers import spatialize_point_dataframe
@@ -57,6 +55,7 @@ class PostgreSQL():
                  super_db: str = "postgres",
                  super_un: str = "postgres",
                  super_pw: str = "password2",
+                 active_schema: str = "public",
                  verbosity: str = "full",
                  data_inbox: Path = DEFAULT_DATA_INBOX,
                  data_outbox: Path = DEFAULT_DATA_OUTBOX):
@@ -86,7 +85,7 @@ class PostgreSQL():
                           ``"minimal"`` and ``"errors"``
         :type verbosity: str, optional
 
-        TODO: add data box and print style params
+        TODO: add data box, print style, schema params
         """
 
         self.DATABASE = working_db
@@ -98,6 +97,7 @@ class PostgreSQL():
         self.SUPER_DB = super_db
         self.SUPER_USER = super_un
         self.SUPER_PASSWORD = super_pw
+        self.ACTIVE_SCHEMA = active_schema
 
         for folder in [data_inbox, data_outbox]:
             if not folder.exists():
@@ -195,7 +195,6 @@ class PostgreSQL():
                 _console.print(message)
             else:
                 _console.print(f"Type error: {type(message)}")
-
 
     def timer(func):
         """
@@ -307,7 +306,6 @@ class PostgreSQL():
         code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
         self._print(1, code_w_highlight)
 
-
         connection = psycopg2.connect(self.uri())
 
         gdf = gpd.GeoDataFrame.from_postgis(query,
@@ -337,7 +335,6 @@ class PostgreSQL():
         code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
         self._print(1, code_w_highlight)
 
-
         result = self.query_as_list(query, super_uri=super_uri)
 
         return result[0][0]
@@ -345,7 +342,6 @@ class PostgreSQL():
     # EXECUTE queries to make them persistent
     # ---------------------------------------
 
-    @timer
     def execute(self,
                 query: str,
                 autocommit: bool = False):
@@ -535,10 +531,13 @@ class PostgreSQL():
     # LISTS of things inside this database (or the cluster at large)
     # --------------------------------------------------------------
 
-    def all_tables_as_list(self) -> list:
+    def all_tables_as_list(self, schema: str = None) -> list:
         """
-        Get a list of all tables in the database
+        Get a list of all tables in the database. 
+        Optionally filter to a schema
 
+        :param schema: name of the schema to filter by
+        :type schema: str
         :return: List of tables in the database
         :rtype: list
         """
@@ -546,14 +545,18 @@ class PostgreSQL():
         sql_all_tables = """
             SELECT table_name
             FROM information_schema.tables
-            WHERE table_schema = 'public'
+        """
+
+        if schema:
+            sql_all_tables += f"""
+                WHERE table_schema = '{schema}'
         """
 
         tables = self.query_as_list(sql_all_tables)
 
         return [t[0] for t in tables]
 
-    def all_spatial_tables_as_dict(self) -> dict:
+    def all_spatial_tables_as_dict(self, schema: str = None) -> dict:
         """
         Get a dictionary of all spatial tables in the database.
         Return value is formatted as: ``{table_name: epsg}``
@@ -565,7 +568,12 @@ class PostgreSQL():
 
         sql_all_spatial_tables = """
             SELECT f_table_name AS tblname, srid
-            FROM geometry_columns;
+            FROM geometry_columns
+        """
+
+        if schema:
+            sql_all_spatial_tables += f"""
+                WHERE f_table_schema = '{schema}'
         """
 
         spatial_tables = self.query_as_list(sql_all_spatial_tables)
@@ -594,7 +602,9 @@ class PostgreSQL():
     # TABLE-level helper functions
     # ----------------------------
 
-    def table_columns_as_list(self, table_name: str) -> list:
+    def table_columns_as_list(self,
+                              table_name: str,
+                              schema: str = None) -> list:
         """
         Get a list of all columns in a table.
 
@@ -604,10 +614,13 @@ class PostgreSQL():
         :rtype: list
         """
 
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
         sql_all_cols_in_table = f"""
             SELECT column_name
             FROM information_schema.columns
-            WHERE table_schema = 'public'
+            WHERE table_schema = '{schema}'
                 AND table_name = '{table_name}';
         """
 
