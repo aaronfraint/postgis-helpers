@@ -22,13 +22,13 @@ def report_time_delta(start_time: datetime.datetime,
                       end_time: datetime.datetime) -> str:
     """
     Calculate a timedelta between two datetimes,
-    and return a string with "Runtime: h:mm:ss.sss"
+    and return a string with "h:mm:ss.ss"
 
     :param start_time: first timepoint
     :type start_time: datetime.datetime
     :param end_time: second timepoint
     :type end_time: datetime.datetime
-    :return: text formatted as "Runtime: h:mm:ss.sss"
+    :return: text formatted as "h:mm:ss.ss"
     :rtype: str
     """
 
