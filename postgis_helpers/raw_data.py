@@ -93,13 +93,13 @@ class DataSource():
         self.flush_folder(self.EXPORT_FOLDER)
 
 
-csv_data = RawData(
+csv_data = DataSource(
     "covid_2020_06_10",
     "csv",
     "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports_us/06-10-2020.csv"
 )
 
-shp_data = RawData(
+shp_data = DataSource(
     sql_table_name="high_injury_network_2017",
     data_type="shp",
     url="https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+high_injury_network_2017&filename=high_injury_network_2017&format=shp&skipfields=cartodb_id",
