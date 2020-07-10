@@ -1084,13 +1084,13 @@ class PostgreSQL():
                 hex_grid(
                     {hexagon_size},
                     (select st_xmin(st_transform(st_collect(geom), 4326))
-                     from {table_to_cover}),
+                     from {schema}.{table_to_cover}),
                     (select st_ymin(st_transform(st_collect(geom), 4326))
-                     from {table_to_cover}),
+                     from {schema}.{table_to_cover}),
                     (select st_xmax(st_transform(st_collect(geom), 4326))
-                     from {table_to_cover}),
+                     from {schema}.{table_to_cover}),
                     (select st_ymax(st_transform(st_collect(geom), 4326))
-                     from {table_to_cover}),
+                     from {schema}.{table_to_cover}),
                     4326,
                     {desired_epsg},
                     {desired_epsg}
@@ -1099,7 +1099,7 @@ class PostgreSQL():
 
         self.execute(sql_create_hex_grid)
 
-        self.table_add_spatial_index(new_table_name)
+        self.table_add_spatial_index(new_table_name, schema=schema)
 
         # TODO: reproject?
 
