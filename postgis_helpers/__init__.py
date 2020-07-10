@@ -5,7 +5,7 @@ from .raw_data import DataSource
 
 from .console import _console
 
-__VERSION__ = "0.2.0"
+__VERSION__ = "0.2.1"
 
 # _console.print(":globe_showing_americas:", justify="left")
 # _console.print(":globe_showing_europe-africa:", justify="center")
