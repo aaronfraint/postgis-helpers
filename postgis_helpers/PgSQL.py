@@ -633,7 +633,8 @@ class PostgreSQL():
     def table_add_or_nullify_column(self,
                                     table_name: str,
                                     column_name: str,
-                                    column_type: str) -> None:
+                                    column_type: str,
+                                    schema: str = None) -> None:
         """
         Add a new column to a table. 
         Overwrite to ``NULL`` if it already exists.
@@ -646,24 +647,27 @@ class PostgreSQL():
         :type column_type: str
         """
 
-        msg = f"Adding {column_type} col named {column_name} to {table_name}"
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
+        msg = f"Adding {column_type} col named {column_name} to {schema}.{table_name}"
         self._print(1, msg)
 
         existing_columns = self.table_columns_as_list(table_name)
 
         if column_name in existing_columns:
             query = f"""
-                UPDATE {table_name} SET {column_name} = NULL;
+                UPDATE {schema}.{table_name} SET {column_name} = NULL;
             """
         else:
             query = f"""
-                ALTER TABLE {table_name}
+                ALTER TABLE {schema}.{table_name}
                 ADD COLUMN {column_name} {column_type};
             """
 
         self.execute(query)
 
-    def table_add_uid_column(self, table_name: str) -> None:
+    def table_add_uid_column(self, table_name: str, schema: str = None) -> None:
         """
         Add a serial primary key column named 'uid' to the table.
 
@@ -671,15 +675,18 @@ class PostgreSQL():
         :type table_name: str
         """
 
-        self._print(1, f"Adding uid column to {table_name}")
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
+        self._print(1, f"Adding uid column to {schema}.{table_name}")
 
         sql_unique_id_column = f"""
-            ALTER TABLE {table_name} DROP COLUMN IF EXISTS uid;
-            ALTER TABLE {table_name} ADD uid serial PRIMARY KEY;
+            ALTER TABLE {schema}.{table_name} DROP COLUMN IF EXISTS uid;
+            ALTER TABLE {schema}.{table_name} ADD uid serial PRIMARY KEY;
         """
         self.execute(sql_unique_id_column)
 
-    def table_add_spatial_index(self, table_name: str) -> None:
+    def table_add_spatial_index(self, table_name: str, schema: str = None) -> None:
         """
         Add a spatial index to the 'geom' column in the table.
 
@@ -687,12 +694,13 @@ class PostgreSQL():
         :type table_name: str
         """
 
-        self._print(1, f"Creating a spatial index on {table_name}")
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
+        self._print(1, f"Creating a spatial index on {schema}.{table_name}")
 
         sql_make_spatial_index = f"""
-            DROP INDEX IF EXISTS gix_{table_name};
-            CREATE INDEX gix_{table_name}
-            ON {table_name}
+            CREATE INDEX ON {schema}.{table_name}
             USING GIST (geom);
         """
         self.execute(sql_make_spatial_index)
@@ -701,7 +709,8 @@ class PostgreSQL():
                                      table_name: str,
                                      old_epsg: Union[int, str],
                                      new_epsg: Union[int, str],
-                                     geom_type: str) -> None:
+                                     geom_type: str,
+                                     schema: str = None) -> None:
         """
         Transform spatial data from one EPSG into another EPSG.
 
@@ -720,17 +729,20 @@ class PostgreSQL():
         :type geom_type: str
         """
 
-        msg = f"Reprojecting {table_name} from {old_epsg} to {new_epsg}"
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
+        msg = f"Reprojecting {schema}.{table_name} from {old_epsg} to {new_epsg}"
         self._print(1, msg)
 
         sql_transform_geom = f"""
-            ALTER TABLE {table_name}
+            ALTER TABLE {schema}.{table_name}
             ALTER COLUMN geom TYPE geometry({geom_type}, {new_epsg})
             USING ST_Transform( ST_SetSRID( geom, {old_epsg} ), {new_epsg} );
         """
         self.execute(sql_transform_geom)
 
-    def table_delete(self, table_name: str) -> None:
+    def table_delete(self, table_name: str, schema: str = None) -> None:
         """
         Delete the table, cascade.
 
@@ -738,10 +750,13 @@ class PostgreSQL():
         :type table_name: str
         """
 
-        self._print(2, f"Deleting table: {table_name}")
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
+        self._print(2, f"Deleting table: {schema}.{table_name}")
 
         sql_drop_table = f"""
-            DROP TABLE {table_name} CASCADE;
+            DROP TABLE {schema}.{table_name} CASCADE;
         """
         self.execute(sql_drop_table)
 
@@ -751,12 +766,16 @@ class PostgreSQL():
                                 y_lat_col: str,
                                 epsg: int,
                                 if_exists: str = "replace",
-                                new_table: str = None) -> gpd.GeoDataFrame:
+                                new_table: str = None,
+                                schema: str = None) -> gpd.GeoDataFrame:
+
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
 
         if not new_table:
             new_table = f"{src_table}_spatial"
 
-        df = self.query_as_df(f"SELECT * FROM {src_table};")
+        df = self.query_as_df(f"SELECT * FROM {schema}.{src_table};")
 
         gdf = spatialize_point_dataframe(df,
                                          x_lon_col=x_lon_col,
@@ -773,7 +792,8 @@ class PostgreSQL():
     def import_dataframe(self,
                          dataframe: pd.DataFrame,
                          table_name: str,
-                         if_exists: str = "fail") -> None:
+                         if_exists: str = "fail",
+                         schema: str = None) -> None:
         """
         Import an in-memory ``pandas.DataFrame`` to the SQL database.
 
@@ -787,7 +807,11 @@ class PostgreSQL():
                           defaults to "fail"
         :type if_exists: str, optional
         """
-        self._print(2, f"Importing dataframe to: {table_name}")
+
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
+        self._print(2, f"Importing dataframe to: {schema}.{table_name}")
 
         # Replace "Column Name" with "column_name"
         dataframe.columns = dataframe.columns.str.replace(' ', '_')
@@ -800,14 +824,15 @@ class PostgreSQL():
 
         # Write to database
         engine = sqlalchemy.create_engine(self.uri())
-        dataframe.to_sql(table_name, engine, if_exists=if_exists)
+        dataframe.to_sql(table_name, engine, if_exists=if_exists, schema=schema)
         engine.dispose()
 
     def import_geodataframe(self,
                             gdf: gpd.GeoDataFrame,
                             table_name: str,
                             src_epsg: Union[int, bool] = False,
-                            if_exists: str = "replace"):
+                            if_exists: str = "replace",
+                            schema: str = None):
         """
         Import an in-memory ``geopandas.GeoDataFrame`` to the SQL database.
 
@@ -825,6 +850,8 @@ class PostgreSQL():
                           defaults to "replace"
         :type if_exists: str, optional
         """
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
 
         # Read the geometry type. It's possible there are
         # both MULTIPOLYGONS and POLYGONS. This grabs the MULTI variant
@@ -832,7 +859,7 @@ class PostgreSQL():
         geom_types = list(gdf.geometry.geom_type.unique())
         geom_typ = max(geom_types, key=len).upper()
 
-        self._print(2, f"Importing {geom_typ} geodataframe to: {table_name}")
+        self._print(2, f"Importing {geom_typ} geodataframe to: {schema}.{table_name}")
 
         # Manually set the EPSG if the user passes one
         if src_epsg:
@@ -875,8 +902,12 @@ class PostgreSQL():
 
         # Write geodataframe to SQL database
         engine = sqlalchemy.create_engine(self.uri())
-        gdf.to_sql(table_name, engine,
-                   if_exists=if_exists, index=True, index_label='gid',
+        gdf.to_sql(table_name,
+                   engine,
+                   if_exists=if_exists,
+                   index=True,
+                   index_label='gid',
+                   schema=schema,
                    dtype={'geom': Geometry(geom_typ, srid=epsg_code)})
         engine.dispose()
 
@@ -888,6 +919,7 @@ class PostgreSQL():
                    table_name: str,
                    csv_path: Path,
                    if_exists: str = "append",
+                   schema: str = None,
                    **csv_kwargs):
         r"""
         Load a CSV into a dataframe, then save the df to SQL.
@@ -901,12 +933,16 @@ class PostgreSQL():
         :type if_exists: str, optional
         :param \**csv_kwargs: any kwargs for ``pd.read_csv()`` are valid here.
         """
+
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
         self._print(2, "Loading CSV to dataframe")
 
         # Read the CSV with whatever kwargs were passed
         df = pd.read_csv(csv_path, **csv_kwargs)
 
-        self.import_dataframe(df, table_name, if_exists=if_exists)
+        self.import_dataframe(df, table_name, if_exists=if_exists, schema=schema)
 
         return df
 
@@ -914,7 +950,8 @@ class PostgreSQL():
                        table_name: str,
                        data_path: Path,
                        src_epsg: Union[int, bool] = False,
-                       if_exists: str = "fail"):
+                       if_exists: str = "fail",
+                       schema: str = None):
         """
         Load geographic data into a geodataframe, then save to SQL.
 
@@ -930,6 +967,9 @@ class PostgreSQL():
                           defaults to "replace"
         :type if_exists: str, optional
         """
+
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
 
         self._print(2, "Loading spatial data to geodataframe")
 
@@ -947,7 +987,8 @@ class PostgreSQL():
         self.import_geodataframe(gdf,
                                  table_name,
                                  src_epsg=src_epsg,
-                                 if_exists=if_exists)
+                                 if_exists=if_exists,
+                                 schema=schema)
 
     # CREATE data within the database
     # -------------------------------
@@ -956,10 +997,15 @@ class PostgreSQL():
                                  query: str,
                                  new_table_name: str,
                                  geom_type: str,
-                                 epsg: int) -> None:
+                                 epsg: int,
+                                 schema: str = None) -> None:
         """
         TODO: docstring
         """
+
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
 
         self._print(2, f"Making new geotable in DB : {new_table_name}")
 
@@ -977,24 +1023,26 @@ class PostgreSQL():
             return
 
         sql_make_table_from_query = f"""
-            DROP TABLE IF EXISTS {new_table_name};
-            CREATE TABLE {new_table_name} AS
+            DROP TABLE IF EXISTS {schema}.{new_table_name};
+            CREATE TABLE {schema}.{new_table_name} AS
             {query}
         """
 
         self.execute(sql_make_table_from_query)
 
-        self.table_add_uid_column(new_table_name)
-        self.table_add_spatial_index(new_table_name)
+        self.table_add_uid_column(new_table_name, schema=schema)
+        self.table_add_spatial_index(new_table_name, schema=schema)
         self.table_reproject_spatial_data(new_table_name,
                                           epsg, epsg,
-                                          geom_type=geom_type.upper())
+                                          geom_type=geom_type.upper(),
+                                          schema=schema)
 
     def make_hexagon_overlay(self,
                              new_table_name: str,
                              table_to_cover: str,
                              desired_epsg: int,
                              hexagon_size: float,
+                             schema: str = None,
                              ) -> None:
         """
         Create a new spatial hexagon grid covering another
@@ -1011,19 +1059,22 @@ class PostgreSQL():
         :type hexagon_size: float
         """
 
-        self._print(2, f"Creating hexagon table named: {new_table_name}")
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
+        self._print(2, f"Creating hexagon table named: {schema}.{new_table_name}")
 
         sql_create_hex_grid = f"""
 
-            DROP TABLE IF EXISTS {new_table_name};
+            DROP TABLE IF EXISTS {schema}.{new_table_name};
 
-            CREATE TABLE {new_table_name} (
+            CREATE TABLE {schema}.{new_table_name} (
                 gid SERIAL NOT NULL PRIMARY KEY,
                 geom GEOMETRY('POLYGON', {desired_epsg}, 2) NOT NULL
             )
             WITH (OIDS=FALSE);
 
-            INSERT INTO {new_table_name} (geom)
+            INSERT INTO {schema}.{new_table_name} (geom)
             SELECT
                 hex_grid(
                     {hexagon_size},
@@ -1054,7 +1105,8 @@ class PostgreSQL():
     def export_shapefile(self,
                          table_name: str,
                          output_folder: Path,
-                         where_clause: str = None
+                         where_clause: str = None,
+                         schema: str = None,
                          ) -> gpd.GeoDataFrame:
         """Save a spatial SQL table to shapefile.
            Add an optional filter with the ``where_clause``:
@@ -1068,9 +1120,12 @@ class PostgreSQL():
         :type where_clause: str, optional
         """
 
-        self._print(2, "Exporting {table_name} to shapefile")
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
 
-        query = f"SELECT * FROM {table_name} "
+        self._print(2, "Exporting {schema}.{table_name} to shapefile")
+
+        query = f"SELECT * FROM {schema}.{table_name} "
 
         if where_clause:
             query += where_clause
@@ -1113,6 +1168,7 @@ class PostgreSQL():
         Use the command-line ``pgsql2shp`` utility.
 
         TODO: check if pgsql2shp exists and exit early if not
+        TODO: check if schema is supported
 
         ``extra_args`` is a list of tuples, passed in as
         ``[(flag1, val1), (flag2, val2)]``
@@ -1178,6 +1234,7 @@ class PostgreSQL():
                   new_epsg: int = None) -> str:
         """
         TODO: Docstring
+        TODO: add schema option
 
         :param table_name: [description]
         :type table_name: str
@@ -1212,7 +1269,8 @@ class PostgreSQL():
 
     def transfer_data_to_another_db(self,
                                     table_name: str,
-                                    other_postgresql_db) -> None:
+                                    other_postgresql_db,
+                                    schema: str = None) -> None:
         """
         Copy data from one SQL database to another.
 
@@ -1222,7 +1280,10 @@ class PostgreSQL():
         :type other_postgresql_db: PostgreSQL
         """
 
-        query = f"SELECT * FROM {table_name}"
+        if not schema:
+            schema = self.ACTIVE_SCHEMA
+
+        query = f"SELECT * FROM {schema}.{table_name}"
 
         # If the data is spatial use a geodataframe
         if table_name in self.all_spatial_tables_as_dict():
@@ -1237,7 +1298,9 @@ class PostgreSQL():
 
 def connect_via_uri(uri: str,
                     verbosity: str = "full",
-                    super_db: str = "postgres"):
+                    super_db: str = "postgres",
+                    super_user: str = None,
+                    super_pw: str = None):
     """
     Create a ``PostgreSQL`` object from a URI. Note that
     this process must make assumptions about the super-user
@@ -1272,6 +1335,12 @@ def connect_via_uri(uri: str,
     host, port_db = host_port_db.split(":")
     port, db_name = port_db.split(r"/")
 
+    if not super_pw:
+        super_pw = password
+
+    if not super_user:
+        super_user = username
+
     values = {
         "host": host,
         "un": username,
@@ -1280,8 +1349,8 @@ def connect_via_uri(uri: str,
         "sslmode": sslmode,
         "verbosity": "full",
         "super_db": super_db,
-        "super_un": username,
-        "super_pw": password
+        "super_un": super_user,
+        "super_pw": super_pw
     }
 
     return PostgreSQL(db_name, **values)
