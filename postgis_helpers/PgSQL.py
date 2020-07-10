@@ -667,7 +667,10 @@ class PostgreSQL():
 
         self.execute(query)
 
-    def table_add_uid_column(self, table_name: str, schema: str = None) -> None:
+    def table_add_uid_column(self,
+                             table_name: str,
+                             schema: str = None,
+                             uid_col: str = "uid") -> None:
         """
         Add a serial primary key column named 'uid' to the table.
 
@@ -681,8 +684,8 @@ class PostgreSQL():
         self._print(1, f"Adding uid column to {schema}.{table_name}")
 
         sql_unique_id_column = f"""
-            ALTER TABLE {schema}.{table_name} DROP COLUMN IF EXISTS uid;
-            ALTER TABLE {schema}.{table_name} ADD uid serial PRIMARY KEY;
+            ALTER TABLE {schema}.{table_name} DROP COLUMN IF EXISTS {uid_col};
+            ALTER TABLE {schema}.{table_name} ADD {uid_col} serial PRIMARY KEY;
         """
         self.execute(sql_unique_id_column)
 
@@ -832,7 +835,8 @@ class PostgreSQL():
                             table_name: str,
                             src_epsg: Union[int, bool] = False,
                             if_exists: str = "replace",
-                            schema: str = None):
+                            schema: str = None,
+                            uid_col: str = "uid"):
         """
         Import an in-memory ``geopandas.GeoDataFrame`` to the SQL database.
 
@@ -889,9 +893,9 @@ class PostgreSQL():
             gdf.drop('gid', 1, inplace=True)
 
         # Rename 'uid' to 'old_uid'
-        if 'uid' in gdf.columns:
-            gdf['old_uid'] = gdf['uid']
-            gdf.drop('uid', 1, inplace=True)
+        if uid_col in gdf.columns:
+            gdf[f'old_{uid_col}'] = gdf[uid_col]
+            gdf.drop(uid_col, 1, inplace=True)
 
         # Build a 'geom' column using geoalchemy2
         # and drop the source 'geometry' column
@@ -911,8 +915,8 @@ class PostgreSQL():
                    dtype={'geom': Geometry(geom_typ, srid=epsg_code)})
         engine.dispose()
 
-        self.table_add_uid_column(table_name)
-        self.table_add_spatial_index(table_name)
+        self.table_add_uid_column(table_name, schema=schema, uid_col=uid_col)
+        self.table_add_spatial_index(table_name, schema=schema)
 
     @timer
     def import_csv(self,
@@ -998,7 +1002,8 @@ class PostgreSQL():
                                  new_table_name: str,
                                  geom_type: str,
                                  epsg: int,
-                                 schema: str = None) -> None:
+                                 schema: str = None,
+                                 uid_col: str = "uid") -> None:
         """
         TODO: docstring
         """
@@ -1030,7 +1035,7 @@ class PostgreSQL():
 
         self.execute(sql_make_table_from_query)
 
-        self.table_add_uid_column(new_table_name, schema=schema)
+        self.table_add_uid_column(new_table_name, schema=schema, uid_col=uid_col)
         self.table_add_spatial_index(new_table_name, schema=schema)
         self.table_reproject_spatial_data(new_table_name,
                                           epsg, epsg,
