@@ -42,7 +42,11 @@ def init(filepath, overwrite):
     """ Create a new config file to define database connection parameters. """
 
     make_config_file(filepath=filepath, overwrite=overwrite)
-    _console.print(f":bottle_with_popping_cork: You can now configure your PgSQL connections at {filepath}")
+
+    msg = f""":bottle_with_popping_cork::bottle_with_popping_cork::bottle_with_popping_cork:  
+        You can now configure your PgSQL connections at:
+        {filepath}"""
+    _console.print(msg)
 
 
 # BACK UP ALL DATABASES ON A GIVEN HOST
