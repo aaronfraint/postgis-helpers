@@ -38,9 +38,6 @@ def report_time_delta(start_time: datetime.datetime,
 
 
 def dt_as_time(dt: datetime.datetime) -> str:
-    h, m, s = dt.strftime('%H:%M:%s').split(":")
-
-    # Put a decimal into the seconds and truncate to 2 places
-    s = s[:2] + "." + s[2:4]
+    h, m, s = dt.strftime('%H:%M:%S').split(":")
 
     return f"{h}:{m}:{s}"
