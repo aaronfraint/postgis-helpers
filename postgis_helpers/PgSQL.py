@@ -653,7 +653,7 @@ class PostgreSQL():
         msg = f"Adding {column_type} col named {column_name} to {schema}.{table_name}"
         self._print(1, msg)
 
-        existing_columns = self.table_columns_as_list(table_name)
+        existing_columns = self.table_columns_as_list(table_name, schema=schema)
 
         if column_name in existing_columns:
             query = f"""
