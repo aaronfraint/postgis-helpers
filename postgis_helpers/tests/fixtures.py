@@ -14,15 +14,16 @@ from pathlib import Path
 from postgis_helpers import PostgreSQL, configurations
 
 
-class DataForTest():
-
-    def __init__(self,
-                 table_name: str,
-                 data_type: str,
-                 url_path: str = None,
-                 epsg: int = None,
-                 import_folder: Path = None,
-                 export_folder: Path = None):
+class DataForTest:
+    def __init__(
+        self,
+        table_name: str,
+        data_type: str,
+        url_path: str = None,
+        epsg: int = None,
+        import_folder: Path = None,
+        export_folder: Path = None,
+    ):
 
         self.NAME = table_name
         self.PATH_URL = url_path
@@ -68,14 +69,14 @@ class DataForTest():
 test_csv_data = DataForTest(
     "covid_2020_06_10",
     "csv",
-    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports_us/06-10-2020.csv"
+    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports_us/06-10-2020.csv",
 )
 
 test_shp_data = DataForTest(
     "high_injury_network_2017",
     "shp",
     "https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+high_injury_network_2017&filename=high_injury_network_2017&format=shp&skipfields=cartodb_id",
-    2272
+    2272,
 )
 
 
@@ -83,9 +84,9 @@ test_shp_data = DataForTest(
 def database_1():
 
     # Set up the database
-    db = PostgreSQL("test_from_ward",
-                    verbosity="minimal",
-                    **configurations()["localhost"])
+    db = PostgreSQL(
+        "test_from_ward", verbosity="minimal", **configurations()["localhost"]
+    )
 
     # Import CSV and shapefile data sources
     db.import_csv(test_csv_data.NAME, test_csv_data.PATH_URL, if_exists="replace")
@@ -106,9 +107,9 @@ def database_1():
 def database_2():
 
     # Set up the database
-    db = PostgreSQL("test_from_ward_2",
-                    verbosity="minimal",
-                    **configurations()["localhost"])
+    db = PostgreSQL(
+        "test_from_ward_2", verbosity="minimal", **configurations()["localhost"]
+    )
 
     # Yield to the test
     yield db

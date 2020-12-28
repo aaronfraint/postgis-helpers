@@ -2,10 +2,9 @@ import pandas as pd
 import geopandas as gpd
 
 
-def spatialize_point_dataframe(df: pd.DataFrame,
-                               x_lon_col: str,
-                               y_lat_col: str,
-                               epsg: int) -> gpd.GeoDataFrame:
+def spatialize_point_dataframe(
+    df: pd.DataFrame, x_lon_col: str, y_lat_col: str, epsg: int
+) -> gpd.GeoDataFrame:
 
     # Force lat and lon columns into float type
     df[y_lat_col] = df[y_lat_col].astype(float)

@@ -18,8 +18,9 @@ def now(tz: str = None) -> datetime.datetime:
         return datetime.datetime.now()
 
 
-def report_time_delta(start_time: datetime.datetime,
-                      end_time: datetime.datetime) -> str:
+def report_time_delta(
+    start_time: datetime.datetime, end_time: datetime.datetime
+) -> str:
     """
     Calculate a timedelta between two datetimes,
     and return a string with "h:mm:ss.ss"
@@ -38,6 +39,6 @@ def report_time_delta(start_time: datetime.datetime,
 
 
 def dt_as_time(dt: datetime.datetime) -> str:
-    h, m, s = dt.strftime('%H:%M:%S').split(":")
+    h, m, s = dt.strftime("%H:%M:%S").split(":")
 
     return f"{h}:{m}:{s}"

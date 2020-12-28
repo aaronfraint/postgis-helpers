@@ -6,8 +6,7 @@ from postgis_helpers.tests.fixtures import DataForTest, database_1, test_shp_dat
 
 # Can we make new geometric tables from queries?
 # ---------- ---------- ---------- ---------- --
-def _test_make_geotable_from_query(db: PostgreSQL,
-                                   shp: DataForTest):
+def _test_make_geotable_from_query(db: PostgreSQL, shp: DataForTest):
 
     new_geotable = "test_make_geotable_multilinestring"
 
@@ -17,10 +16,9 @@ def _test_make_geotable_from_query(db: PostgreSQL,
     """
 
     # Make a new geotable
-    db.make_geotable_from_query(query,
-                                new_geotable,
-                                geom_type="MULTILINESTRING",
-                                epsg=shp.EPSG)
+    db.make_geotable_from_query(
+        query, new_geotable, geom_type="MULTILINESTRING", epsg=shp.EPSG
+    )
 
     # Confirm that the new table's EPSG matches the expected value
     epsg = db.all_spatial_tables_as_dict()[new_geotable]

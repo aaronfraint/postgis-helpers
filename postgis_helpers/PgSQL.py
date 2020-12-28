@@ -32,7 +32,7 @@ from .console import _console, RichStyle, RichSyntax
 from .config_helpers import DEFAULT_DATA_INBOX, DEFAULT_DATA_OUTBOX
 
 
-class PostgreSQL():
+class PostgreSQL:
     """
     This class encapsulates interactions with a ``PostgreSQL``
     database. It leverages ``psycopg2``, ``sqlalchemy``, and ``geoalchemy2``
@@ -45,20 +45,22 @@ class PostgreSQL():
         - ``verbosity`` level, which controls how much gets printed out
     """
 
-    def __init__(self,
-                 working_db: str,
-                 un: str = "postgres",
-                 pw: str = "password1",
-                 host: str = "localhost",
-                 port: int = 5432,
-                 sslmode: str = None,
-                 super_db: str = "postgres",
-                 super_un: str = "postgres",
-                 super_pw: str = "password2",
-                 active_schema: str = "public",
-                 verbosity: str = "full",
-                 data_inbox: Path = DEFAULT_DATA_INBOX,
-                 data_outbox: Path = DEFAULT_DATA_OUTBOX):
+    def __init__(
+        self,
+        working_db: str,
+        un: str = "postgres",
+        pw: str = "password1",
+        host: str = "localhost",
+        port: int = 5432,
+        sslmode: str = None,
+        super_db: str = "postgres",
+        super_un: str = "postgres",
+        super_pw: str = "password2",
+        active_schema: str = "public",
+        verbosity: str = "full",
+        data_inbox: Path = DEFAULT_DATA_INBOX,
+        data_outbox: Path = DEFAULT_DATA_OUTBOX,
+    ):
         """
         Initialize a database object with placeholder values.
 
@@ -137,14 +139,12 @@ class PostgreSQL():
             "sslmode": self.SSLMODE,
             "super_db": self.SUPER_DB,
             "super_un": self.SUPER_USER,
-            "super_pw": self.SUPER_PASSWORD
+            "super_pw": self.SUPER_PASSWORD,
         }
 
         return details
 
-    def _print(self,
-               level: int,
-               message: str):
+    def _print(self, level: int, message: str):
         """
         Messages will print out depending on the VERBOSITY property
         and the importance level provided.
@@ -205,6 +205,7 @@ class PostgreSQL():
         :param func: the function to be timed
         :type func: function
         """
+
         def magic(self, *args, **kwargs):
             start_time = now()
 
@@ -223,14 +224,13 @@ class PostgreSQL():
             self._print(1, runtime_msg)
 
             return function_return_value
+
         return magic
 
     # QUERY the database
     # ------------------
 
-    def query_as_list(self,
-                      query: str,
-                      super_uri: bool = False) -> list:
+    def query_as_list(self, query: str, super_uri: bool = False) -> list:
         """
         Query the database and get the result as a ``list``
 
@@ -245,7 +245,7 @@ class PostgreSQL():
         self._print(1, "... querying ...")
         code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
         self._print(1, code_w_highlight)
-        
+
         uri = self.uri(super_uri=super_uri)
 
         connection = psycopg2.connect(uri)
@@ -261,9 +261,7 @@ class PostgreSQL():
 
         return result
 
-    def query_as_df(self,
-                    query: str,
-                    super_uri: bool = False) -> pd.DataFrame:
+    def query_as_df(self, query: str, super_uri: bool = False) -> pd.DataFrame:
         """
         Query the database and get the result as a ``pandas.DataFrame``
 
@@ -288,9 +286,7 @@ class PostgreSQL():
 
         return df
 
-    def query_as_geo_df(self,
-                        query: str,
-                        geom_col: str = "geom") -> gpd.GeoDataFrame:
+    def query_as_geo_df(self, query: str, geom_col: str = "geom") -> gpd.GeoDataFrame:
         """
         Query the database and get the result as a ``geopandas.GeoDataFrame``
 
@@ -308,17 +304,13 @@ class PostgreSQL():
 
         connection = psycopg2.connect(self.uri())
 
-        gdf = gpd.GeoDataFrame.from_postgis(query,
-                                            connection,
-                                            geom_col=geom_col)
+        gdf = gpd.GeoDataFrame.from_postgis(query, connection, geom_col=geom_col)
 
         connection.close()
 
         return gdf
 
-    def query_as_single_item(self,
-                             query: str,
-                             super_uri: bool = False):
+    def query_as_single_item(self, query: str, super_uri: bool = False):
         """
         Query the database and get the result as a SINGLETON.
         For when you want to transform ``[(True,)]`` into ``True``
@@ -342,9 +334,7 @@ class PostgreSQL():
     # EXECUTE queries to make them persistent
     # ---------------------------------------
 
-    def execute(self,
-                query: str,
-                autocommit: bool = False):
+    def execute(self, query: str, autocommit: bool = False):
         """
         Execute a query for a persistent result in the database.
         Use ``autocommit=True`` when creating and deleting databases.
@@ -359,7 +349,9 @@ class PostgreSQL():
         self._print(1, "... executing ...")
 
         if len(query) < 5000:
-            code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
+            code_w_highlight = RichSyntax(
+                query, "sql", theme="monokai", line_numbers=True
+            )
             self._print(1, code_w_highlight)
 
         uri = self.uri(super_uri=autocommit)
@@ -404,8 +396,9 @@ class PostgreSQL():
             pw = self.PASSWORD
             database = self.DATABASE
 
-        connection_string = \
+        connection_string = (
             f"postgresql://{user}:{pw}@{self.HOST}:{self.PORT}/{database}"
+        )
 
         if self.SSLMODE:
             connection_string += f"?sslmode={self.SSLMODE}"
@@ -436,8 +429,7 @@ class PostgreSQL():
         if self.exists():
             self._print(1, f"Database {self.DATABASE} already exists")
         else:
-            self._print(3,
-                        f"Creating database: {self.DATABASE} on {self.HOST}")
+            self._print(3, f"Creating database: {self.DATABASE} on {self.HOST}")
 
             sql_make_db = f"CREATE DATABASE {self.DATABASE};"
 
@@ -462,8 +454,7 @@ class PostgreSQL():
         if not self.exists():
             self._print(1, "This database does not exist, nothing to delete!")
         else:
-            self._print(3,
-                        f"Deleting database: {self.DATABASE} on {self.HOST}")
+            self._print(3, f"Deleting database: {self.DATABASE} on {self.HOST}")
             sql_drop_db = f"DROP DATABASE {self.DATABASE};"
             self.execute(sql_drop_db, autocommit=True)
 
@@ -486,8 +477,8 @@ class PostgreSQL():
         # Get a string for today's date and time,
         # like '2020_06_10' and '14_13_38'
         rightnow = str(now())
-        today = rightnow.split(' ')[0].replace('-', '_')
-        timestamp = rightnow.split(' ')[1].replace(':', '_').split(".")[0]
+        today = rightnow.split(" ")[0].replace("-", "_")
+        timestamp = rightnow.split(" ")[1].replace(":", "_").split(".")[0]
 
         # Use pg_dump to save the database to disk
         sql_name = f"{self.DATABASE}_d_{today}_t_{timestamp}.sql"
@@ -501,9 +492,9 @@ class PostgreSQL():
         return sql_file
 
     @timer
-    def db_load_pgdump_file(self,
-                            sql_dump_filepath: Path,
-                            overwrite: bool = True) -> None:
+    def db_load_pgdump_file(
+        self, sql_dump_filepath: Path, overwrite: bool = True
+    ) -> None:
         """
         Populate the database by loading from a SQL file that
         was previously created by ``pg_dump``.
@@ -520,7 +511,10 @@ class PostgreSQL():
                 self.db_delete()
                 self.db_create()
             else:
-                self._print(3, f"Database named {self.DATABASE} already exists and overwrite=False!")
+                self._print(
+                    3,
+                    f"Database named {self.DATABASE} already exists and overwrite=False!",
+                )
                 return
 
         self._print(2, f"Loading {self.DATABASE} from {sql_dump_filepath}")
@@ -533,7 +527,7 @@ class PostgreSQL():
 
     def all_tables_as_list(self, schema: str = None) -> list:
         """
-        Get a list of all tables in the database. 
+        Get a list of all tables in the database.
         Optionally filter to a schema
 
         :param schema: name of the schema to filter by
@@ -602,9 +596,7 @@ class PostgreSQL():
     # TABLE-level helper functions
     # ----------------------------
 
-    def table_columns_as_list(self,
-                              table_name: str,
-                              schema: str = None) -> list:
+    def table_columns_as_list(self, table_name: str, schema: str = None) -> list:
         """
         Get a list of all columns in a table.
 
@@ -630,13 +622,11 @@ class PostgreSQL():
 
         return column_names
 
-    def table_add_or_nullify_column(self,
-                                    table_name: str,
-                                    column_name: str,
-                                    column_type: str,
-                                    schema: str = None) -> None:
+    def table_add_or_nullify_column(
+        self, table_name: str, column_name: str, column_type: str, schema: str = None
+    ) -> None:
         """
-        Add a new column to a table. 
+        Add a new column to a table.
         Overwrite to ``NULL`` if it already exists.
 
         :param table_name: Name of the table
@@ -667,10 +657,9 @@ class PostgreSQL():
 
         self.execute(query)
 
-    def table_add_uid_column(self,
-                             table_name: str,
-                             schema: str = None,
-                             uid_col: str = "uid") -> None:
+    def table_add_uid_column(
+        self, table_name: str, schema: str = None, uid_col: str = "uid"
+    ) -> None:
         """
         Add a serial primary key column named 'uid' to the table.
 
@@ -708,12 +697,14 @@ class PostgreSQL():
         """
         self.execute(sql_make_spatial_index)
 
-    def table_reproject_spatial_data(self,
-                                     table_name: str,
-                                     old_epsg: Union[int, str],
-                                     new_epsg: Union[int, str],
-                                     geom_type: str,
-                                     schema: str = None) -> None:
+    def table_reproject_spatial_data(
+        self,
+        table_name: str,
+        old_epsg: Union[int, str],
+        new_epsg: Union[int, str],
+        geom_type: str,
+        schema: str = None,
+    ) -> None:
         """
         Transform spatial data from one EPSG into another EPSG.
 
@@ -763,14 +754,16 @@ class PostgreSQL():
         """
         self.execute(sql_drop_table)
 
-    def table_spatialize_points(self,
-                                src_table: str,
-                                x_lon_col: str,
-                                y_lat_col: str,
-                                epsg: int,
-                                if_exists: str = "replace",
-                                new_table: str = None,
-                                schema: str = None) -> gpd.GeoDataFrame:
+    def table_spatialize_points(
+        self,
+        src_table: str,
+        x_lon_col: str,
+        y_lat_col: str,
+        epsg: int,
+        if_exists: str = "replace",
+        new_table: str = None,
+        schema: str = None,
+    ) -> gpd.GeoDataFrame:
 
         if not schema:
             schema = self.ACTIVE_SCHEMA
@@ -780,10 +773,9 @@ class PostgreSQL():
 
         df = self.query_as_df(f"SELECT * FROM {schema}.{src_table};")
 
-        gdf = spatialize_point_dataframe(df,
-                                         x_lon_col=x_lon_col,
-                                         y_lat_col=y_lat_col,
-                                         epsg=epsg)
+        gdf = spatialize_point_dataframe(
+            df, x_lon_col=x_lon_col, y_lat_col=y_lat_col, epsg=epsg
+        )
 
         self.import_geodataframe(gdf, new_table, if_exists=if_exists)
 
@@ -792,11 +784,13 @@ class PostgreSQL():
     # IMPORT data into the database
     # -----------------------------
 
-    def import_dataframe(self,
-                         dataframe: pd.DataFrame,
-                         table_name: str,
-                         if_exists: str = "fail",
-                         schema: str = None) -> None:
+    def import_dataframe(
+        self,
+        dataframe: pd.DataFrame,
+        table_name: str,
+        if_exists: str = "fail",
+        schema: str = None,
+    ) -> None:
         """
         Import an in-memory ``pandas.DataFrame`` to the SQL database.
 
@@ -817,26 +811,28 @@ class PostgreSQL():
         self._print(2, f"Importing dataframe to: {schema}.{table_name}")
 
         # Replace "Column Name" with "column_name"
-        dataframe.columns = dataframe.columns.str.replace(' ', '_')
+        dataframe.columns = dataframe.columns.str.replace(" ", "_")
         dataframe.columns = [x.lower() for x in dataframe.columns]
 
         # Remove '.' and '-' from column names.
         # i.e. 'geo.display-label' becomes 'geodisplaylabel'
-        for s in ['.', '-', '(', ')', '+']:
-            dataframe.columns = dataframe.columns.str.replace(s, '')
+        for s in [".", "-", "(", ")", "+"]:
+            dataframe.columns = dataframe.columns.str.replace(s, "")
 
         # Write to database
         engine = sqlalchemy.create_engine(self.uri())
         dataframe.to_sql(table_name, engine, if_exists=if_exists, schema=schema)
         engine.dispose()
 
-    def import_geodataframe(self,
-                            gdf: gpd.GeoDataFrame,
-                            table_name: str,
-                            src_epsg: Union[int, bool] = False,
-                            if_exists: str = "replace",
-                            schema: str = None,
-                            uid_col: str = "uid"):
+    def import_geodataframe(
+        self,
+        gdf: gpd.GeoDataFrame,
+        table_name: str,
+        src_epsg: Union[int, bool] = False,
+        if_exists: str = "replace",
+        schema: str = None,
+        uid_col: str = "uid",
+    ):
         """
         Import an in-memory ``geopandas.GeoDataFrame`` to the SQL database.
 
@@ -874,57 +870,59 @@ class PostgreSQL():
         else:
             # Older gdfs have CRS stored as a dict: {'init': 'epsg:4326'}
             if type(gdf.crs) == dict:
-                epsg_code = int(gdf.crs['init'].split(" ")[0].split(':')[1])
+                epsg_code = int(gdf.crs["init"].split(" ")[0].split(":")[1])
             # Now geopandas has a different approach
             else:
-                epsg_code = int(str(gdf.crs).split(':')[1])
+                epsg_code = int(str(gdf.crs).split(":")[1])
 
         # Sanitize the columns before writing to the database
         # Make all column names lower case
         gdf.columns = [x.lower() for x in gdf.columns]
 
         # Replace the 'geom' column with 'geometry'
-        if 'geom' in gdf.columns:
-            gdf['geometry'] = gdf['geom']
-            gdf.drop('geom', 1, inplace=True)
+        if "geom" in gdf.columns:
+            gdf["geometry"] = gdf["geom"]
+            gdf.drop("geom", 1, inplace=True)
 
         # Drop the 'gid' column
-        if 'gid' in gdf.columns:
-            gdf.drop('gid', 1, inplace=True)
+        if "gid" in gdf.columns:
+            gdf.drop("gid", 1, inplace=True)
 
         # Rename 'uid' to 'old_uid'
         if uid_col in gdf.columns:
-            gdf[f'old_{uid_col}'] = gdf[uid_col]
+            gdf[f"old_{uid_col}"] = gdf[uid_col]
             gdf.drop(uid_col, 1, inplace=True)
 
         # Build a 'geom' column using geoalchemy2
         # and drop the source 'geometry' column
-        gdf['geom'] = gdf['geometry'].apply(
-                                    lambda x: WKTElement(x.wkt, srid=epsg_code)
-        )
-        gdf.drop('geometry', 1, inplace=True)
+        gdf["geom"] = gdf["geometry"].apply(lambda x: WKTElement(x.wkt, srid=epsg_code))
+        gdf.drop("geometry", 1, inplace=True)
 
         # Write geodataframe to SQL database
         engine = sqlalchemy.create_engine(self.uri())
-        gdf.to_sql(table_name,
-                   engine,
-                   if_exists=if_exists,
-                   index=True,
-                   index_label='gid',
-                   schema=schema,
-                   dtype={'geom': Geometry(geom_typ, srid=epsg_code)})
+        gdf.to_sql(
+            table_name,
+            engine,
+            if_exists=if_exists,
+            index=True,
+            index_label="gid",
+            schema=schema,
+            dtype={"geom": Geometry(geom_typ, srid=epsg_code)},
+        )
         engine.dispose()
 
         self.table_add_uid_column(table_name, schema=schema, uid_col=uid_col)
         self.table_add_spatial_index(table_name, schema=schema)
 
     @timer
-    def import_csv(self,
-                   table_name: str,
-                   csv_path: Path,
-                   if_exists: str = "append",
-                   schema: str = None,
-                   **csv_kwargs):
+    def import_csv(
+        self,
+        table_name: str,
+        csv_path: Path,
+        if_exists: str = "append",
+        schema: str = None,
+        **csv_kwargs,
+    ):
         r"""
         Load a CSV into a dataframe, then save the df to SQL.
 
@@ -950,12 +948,14 @@ class PostgreSQL():
 
         return df
 
-    def import_geodata(self,
-                       table_name: str,
-                       data_path: Path,
-                       src_epsg: Union[int, bool] = False,
-                       if_exists: str = "fail",
-                       schema: str = None):
+    def import_geodata(
+        self,
+        table_name: str,
+        data_path: Path,
+        src_epsg: Union[int, bool] = False,
+        if_exists: str = "fail",
+        schema: str = None,
+    ):
         """
         Load geographic data into a geodataframe, then save to SQL.
 
@@ -981,29 +981,29 @@ class PostgreSQL():
         gdf = gpd.read_file(data_path)
 
         # Drop null geometries
-        gdf = gdf[gdf['geometry'].notnull()]
+        gdf = gdf[gdf["geometry"].notnull()]
 
         # Explode multipart to singlepart and reset the index
         gdf = gdf.explode()
-        gdf['explode'] = gdf.index
+        gdf["explode"] = gdf.index
         gdf = gdf.reset_index()
 
-        self.import_geodataframe(gdf,
-                                 table_name,
-                                 src_epsg=src_epsg,
-                                 if_exists=if_exists,
-                                 schema=schema)
+        self.import_geodataframe(
+            gdf, table_name, src_epsg=src_epsg, if_exists=if_exists, schema=schema
+        )
 
     # CREATE data within the database
     # -------------------------------
 
-    def make_geotable_from_query(self,
-                                 query: str,
-                                 new_table_name: str,
-                                 geom_type: str,
-                                 epsg: int,
-                                 schema: str = None,
-                                 uid_col: str = "uid") -> None:
+    def make_geotable_from_query(
+        self,
+        query: str,
+        new_table_name: str,
+        geom_type: str,
+        epsg: int,
+        schema: str = None,
+        uid_col: str = "uid",
+    ) -> None:
         """
         TODO: docstring
         """
@@ -1011,18 +1011,22 @@ class PostgreSQL():
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-
         self._print(2, f"Making new geotable in DB : {new_table_name}")
 
-        valid_geom_types = ["POINT", "MULTIPOINT",
-                            "POLYGON", "MULTIPOLYGON",
-                            "LINESTRING", "MULTILINESTRING"]
+        valid_geom_types = [
+            "POINT",
+            "MULTIPOINT",
+            "POLYGON",
+            "MULTIPOLYGON",
+            "LINESTRING",
+            "MULTILINESTRING",
+        ]
 
         if geom_type.upper() not in valid_geom_types:
             for msg in [
                 f"Geometry type of {geom_type} is not valid.",
                 f"Please use one of the following: {valid_geom_types}",
-                "Aborting"
+                "Aborting",
             ]:
                 self._print(3, msg)
             return
@@ -1037,18 +1041,18 @@ class PostgreSQL():
 
         self.table_add_uid_column(new_table_name, schema=schema, uid_col=uid_col)
         self.table_add_spatial_index(new_table_name, schema=schema)
-        self.table_reproject_spatial_data(new_table_name,
-                                          epsg, epsg,
-                                          geom_type=geom_type.upper(),
-                                          schema=schema)
+        self.table_reproject_spatial_data(
+            new_table_name, epsg, epsg, geom_type=geom_type.upper(), schema=schema
+        )
 
-    def make_hexagon_overlay(self,
-                             new_table_name: str,
-                             table_to_cover: str,
-                             desired_epsg: int,
-                             hexagon_size: float,
-                             schema: str = None,
-                             ) -> None:
+    def make_hexagon_overlay(
+        self,
+        new_table_name: str,
+        table_to_cover: str,
+        desired_epsg: int,
+        hexagon_size: float,
+        schema: str = None,
+    ) -> None:
         """
         Create a new spatial hexagon grid covering another
         spatial table. EPSG must be specified for the hexagons,
@@ -1107,12 +1111,13 @@ class PostgreSQL():
     # --------------------------
 
     @timer
-    def export_shapefile(self,
-                         table_name: str,
-                         output_folder: Path,
-                         where_clause: str = None,
-                         schema: str = None,
-                         ) -> gpd.GeoDataFrame:
+    def export_shapefile(
+        self,
+        table_name: str,
+        output_folder: Path,
+        where_clause: str = None,
+        schema: str = None,
+    ) -> gpd.GeoDataFrame:
         """Save a spatial SQL table to shapefile.
            Add an optional filter with the ``where_clause``:
                ``'WHERE speed_limit <= 35'``
@@ -1141,7 +1146,7 @@ class PostgreSQL():
         # Force any boolean columns into strings
         for c in gdf.columns:
             datatype = gdf[c].dtype.name
-            if datatype == 'bool':
+            if datatype == "bool":
                 gdf[c] = gdf[c].astype(str)
 
         output_path = os.path.join(output_folder, f"{table_name}.shp")
@@ -1151,8 +1156,7 @@ class PostgreSQL():
 
         return gdf
 
-    def export_all_shapefiles(self,
-                              output_folder: Path) -> None:
+    def export_all_shapefiles(self, output_folder: Path) -> None:
         """
         Save all spatial tables in the database to shapefile.
 
@@ -1165,10 +1169,9 @@ class PostgreSQL():
 
     # IMPORT/EXPORT data with shp2pgsql / pgsql2shp
     # ---------------------------------------------
-    def pgsql2shp(self,
-                  table_name: str,
-                  output_folder: Path = None,
-                  extra_args: list = None) -> Path:
+    def pgsql2shp(
+        self, table_name: str, output_folder: Path = None, extra_args: list = None
+    ) -> Path:
         """
         Use the command-line ``pgsql2shp`` utility.
 
@@ -1226,17 +1229,18 @@ class PostgreSQL():
         # Finish the command by adding the DB and table names
         cmd += f" {self.DATABASE} {table_name}"
 
-        subprocess.call(cmd, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        subprocess.call(
+            cmd, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL
+        )
 
         self._print(2, cmd)
         self._print(2, f"Exported {table_name} to {output_file}")
 
         return output_folder / f"{table_name}.shp"
 
-    def shp2pgsql(self,
-                  table_name: str,
-                  src_shapefile: Path,
-                  new_epsg: int = None) -> str:
+    def shp2pgsql(
+        self, table_name: str, src_shapefile: Path, new_epsg: int = None
+    ) -> str:
         """
         TODO: Docstring
         TODO: add schema option
@@ -1272,10 +1276,9 @@ class PostgreSQL():
     # TRANSFER data to another database
     # ---------------------------------
 
-    def transfer_data_to_another_db(self,
-                                    table_name: str,
-                                    other_postgresql_db,
-                                    schema: str = None) -> None:
+    def transfer_data_to_another_db(
+        self, table_name: str, other_postgresql_db, schema: str = None
+    ) -> None:
         """
         Copy data from one SQL database to another.
 
@@ -1301,11 +1304,13 @@ class PostgreSQL():
             other_postgresql_db.import_dataframe(df, table_name)
 
 
-def connect_via_uri(uri: str,
-                    verbosity: str = "full",
-                    super_db: str = "postgres",
-                    super_user: str = None,
-                    super_pw: str = None):
+def connect_via_uri(
+    uri: str,
+    verbosity: str = "full",
+    super_db: str = "postgres",
+    super_user: str = None,
+    super_pw: str = None,
+):
     """
     Create a ``PostgreSQL`` object from a URI. Note that
     this process must make assumptions about the super-user
@@ -1355,7 +1360,7 @@ def connect_via_uri(uri: str,
         "verbosity": "full",
         "super_db": super_db,
         "super_un": super_user,
-        "super_pw": super_pw
+        "super_pw": super_pw,
     }
 
     return PostgreSQL(db_name, **values)

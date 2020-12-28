@@ -48,8 +48,9 @@ super_pw = some_super_password12354
 """
 
 
-def make_config_file(filepath: Union[Path, str] = DB_CONFIG_FILEPATH,
-                     overwrite: bool = False) -> bool:
+def make_config_file(
+    filepath: Union[Path, str] = DB_CONFIG_FILEPATH, overwrite: bool = False
+) -> bool:
 
     filepath = Path(filepath)
 
@@ -58,12 +59,16 @@ def make_config_file(filepath: Union[Path, str] = DB_CONFIG_FILEPATH,
         filepath.parent.mkdir(parents=True)
 
     if not overwrite and filepath.exists():
-        _console.print(f":eyes: Config file already exists and overwrite=False. Will not overwrite.")
+        _console.print(
+            f":eyes: Config file already exists and overwrite=False. Will not overwrite."
+        )
         return False
 
     else:
         if filepath.exists():
-            _console.print(f":fast-forward_button: Overwriting config file at {filepath}")
+            _console.print(
+                f":fast-forward_button: Overwriting config file at {filepath}"
+            )
         else:
             _console.print(f":play_button: Creating a new config file at {filepath}")
 

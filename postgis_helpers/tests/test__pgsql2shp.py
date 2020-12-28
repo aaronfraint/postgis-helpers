@@ -8,8 +8,7 @@ from postgis_helpers.tests.fixtures import DataForTest, database_1, test_shp_dat
 
 # Does the wrapper around pgsql2shp produce a new .shp file?
 # ---------- ---------- ---------- ---------- --------- ----
-def _test_pgsql2shp(db: PostgreSQL,
-                    shp: DataForTest):
+def _test_pgsql2shp(db: PostgreSQL, shp: DataForTest):
 
     # Export a spatial table to shapefile
     output_shp = db.pgsql2shp(shp.NAME, shp.EXPORT_FOLDER)
@@ -25,8 +24,7 @@ def _(database, shp):
 
 # Does the new .shp file have a matching EPSG?
 # ---------- ---------- ---------- ----------
-def _test_pgsql2shp_epsg(db: PostgreSQL,
-                         shp: DataForTest):
+def _test_pgsql2shp_epsg(db: PostgreSQL, shp: DataForTest):
 
     # Export a spatial table to shapefile
     output_shp = db.pgsql2shp(shp.NAME, shp.EXPORT_FOLDER)

@@ -5,14 +5,14 @@ from postgis_helpers.PgSQL import PostgreSQL
 from postgis_helpers.config_helpers import (
     configurations,
     make_config_file,
-    DB_CONFIG_FILEPATH
+    DB_CONFIG_FILEPATH,
 )
 from postgis_helpers.console import _console, RichProgress
 
 
 @click.group()
 def main():
-    """ pGIS is a command-line utility for interacting
+    """pGIS is a command-line utility for interacting
     with the postgis_helpers Python package.
 
     To get more information on a particular command,
@@ -29,12 +29,14 @@ def main():
 
 @main.command()
 @click.option(
-    "--filepath", "-f",
+    "--filepath",
+    "-f",
     help="Custom filepath for a new configuration file",
     default=DB_CONFIG_FILEPATH,
 )
 @click.option(
-    "--overwrite", "-o",
+    "--overwrite",
+    "-o",
     help="Flag that will allow overwriting an existing configuration file",
     is_flag=True,
 )
@@ -56,8 +58,7 @@ def init(filepath, overwrite):
 @main.command()
 @click.argument("host", default="localhost")
 @click.option(
-    "--folder", "-f",
-    help="Folder where the output SQL files will be stored."
+    "--folder", "-f", help="Folder where the output SQL files will be stored."
 )
 def db_backup_all(host, folder):
     """Back all databases up on a given HOST
@@ -73,7 +74,7 @@ def db_backup_all(host, folder):
 
     # Connect to the cluster's master database
     this_cluster = configurations()[host]
-    super_db_name = this_cluster['super_db']
+    super_db_name = this_cluster["super_db"]
     super_db = PostgreSQL(super_db_name, **this_cluster)
 
     # Make a folder in the outbox with this host's name
@@ -89,8 +90,7 @@ def db_backup_all(host, folder):
 
     with RichProgress(console=_console) as progress:
         task = progress.add_task(
-                total=len(all_dbs),
-                description=f'Exporting {len(all_dbs)} dbs'
+            total=len(all_dbs), description=f"Exporting {len(all_dbs)} dbs"
         )
         for dbname in all_dbs:
             if dbname != super_db_name:
@@ -107,10 +107,7 @@ def db_backup_all(host, folder):
 @main.command()
 @click.argument("database_name")
 @click.argument("host", default="localhost")
-@click.option(
-    "--folder", "-f",
-    help="Folder where the output SQL file will be stored."
-)
+@click.option("--folder", "-f", help="Folder where the output SQL file will be stored.")
 def db_backup_single(database_name, host, folder):
     """Back up DATABASE_NAME from HOST (to an optional FOLDER)
 
@@ -124,7 +121,7 @@ def db_backup_single(database_name, host, folder):
 
     # Connect to the cluster's master database
     this_cluster = configurations()[host]
-    super_db_name = this_cluster['super_db']
+    super_db_name = this_cluster["super_db"]
     super_db = PostgreSQL(super_db_name, **this_cluster)
 
     # Make a folder in the outbox with this host's name

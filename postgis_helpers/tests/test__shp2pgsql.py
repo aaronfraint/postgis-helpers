@@ -8,8 +8,7 @@ from postgis_helpers.tests.fixtures import DataForTest, database_1, test_shp_dat
 
 # Does the wrapper around shp2pgsql properly import a .shp file?
 # ---------- ---------- ---------- ---------- --------- -------
-def _test_shp2pgsql(db: PostgreSQL,
-                    shp: DataForTest):
+def _test_shp2pgsql(db: PostgreSQL, shp: DataForTest):
 
     # Import the shapefile
     _ = db.shp2pgsql(shp.NAME, shp.IMPORT_FILEPATH)
@@ -25,8 +24,7 @@ def _(database, shp):
 
 # Does the new SQL table have a matching EPSG to the .shp?
 # ---------- ---------- ---------- ---------- ------------
-def _test_shp2pgsql_epsg(db: PostgreSQL,
-                         shp: DataForTest):
+def _test_shp2pgsql_epsg(db: PostgreSQL, shp: DataForTest):
 
     # Import the shapefile
     _ = db.shp2pgsql(shp.NAME, shp.IMPORT_FILEPATH)

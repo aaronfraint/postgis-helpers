@@ -6,16 +6,14 @@ from postgis_helpers.tests.fixtures import DataForTest, database_1, test_shp_dat
 
 # Can we make a hexagon layer covering another layer?
 # ---------- ---------- ---------- ---------- ----------
-def _test_hexagon_overlay(db: PostgreSQL,
-                          shp: DataForTest):
+def _test_hexagon_overlay(db: PostgreSQL, shp: DataForTest):
 
     hex_table_name = "test_hexagons"
 
     # Make a hexagon layer
-    db.make_hexagon_overlay(hex_table_name,
-                            table_to_cover=shp.NAME,
-                            desired_epsg=2272,
-                            hexagon_size=5)
+    db.make_hexagon_overlay(
+        hex_table_name, table_to_cover=shp.NAME, desired_epsg=2272, hexagon_size=5
+    )
 
     assert hex_table_name in db.all_spatial_tables_as_dict()
 

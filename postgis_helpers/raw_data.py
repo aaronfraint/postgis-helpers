@@ -6,16 +6,17 @@ from pathlib import Path
 from .config_helpers import DEFAULT_DATA_INBOX, DEFAULT_DATA_OUTBOX
 
 
-class DataSource():
-
-    def __init__(self,
-                 sql_table_name: str,
-                 data_type: str,
-                 url: str = None,
-                 epsg: int = None,
-                 import_folder: Path = None,
-                 export_folder: Path = None,
-                 zip_file: bool = False):
+class DataSource:
+    def __init__(
+        self,
+        sql_table_name: str,
+        data_type: str,
+        url: str = None,
+        epsg: int = None,
+        import_folder: Path = None,
+        export_folder: Path = None,
+        zip_file: bool = False,
+    ):
 
         self.SQL_TABLE_NAME = sql_table_name
         self.DATA_TYPE = data_type
@@ -69,7 +70,7 @@ class DataSource():
                 zipped_data = zipfile.ZipFile(io.BytesIO(response.content))
                 zipped_data.extractall(output_folder)
             else:
-                open_file = open(self.filepath_import(), 'wb')
+                open_file = open(self.filepath_import(), "wb")
                 open_file.write(response.content)
                 open_file.close()
 
@@ -96,7 +97,7 @@ class DataSource():
 csv_data = DataSource(
     "covid_2020_06_10",
     "csv",
-    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports_us/06-10-2020.csv"
+    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports_us/06-10-2020.csv",
 )
 
 shp_data = DataSource(
@@ -104,5 +105,5 @@ shp_data = DataSource(
     data_type="shp",
     url="https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+high_injury_network_2017&filename=high_injury_network_2017&format=shp&skipfields=cartodb_id",
     epsg=2272,
-    zip_file=True
+    zip_file=True,
 )

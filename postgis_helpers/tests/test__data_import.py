@@ -8,8 +8,7 @@ from postgis_helpers.tests.fixtures import DataForTest, database_1, test_csv_dat
 
 # Does the table exist after importing it?
 # ---------- ---------- ---------- -------
-def _test_import_csv(db: PostgreSQL,
-                     csv: DataForTest):
+def _test_import_csv(db: PostgreSQL, csv: DataForTest):
 
     # Confirm the CSV is now a table in the DB
     assert csv.NAME in db.all_tables_as_list()
@@ -23,8 +22,7 @@ def _(db, csv):
 
 # Does the SQL table have the same number of rows as the dataframe?
 # ---------- ---------- ---------- ---------- ---------- ----------
-def _test_import_csv_matches(db: PostgreSQL,
-                             csv: DataForTest):
+def _test_import_csv_matches(db: PostgreSQL, csv: DataForTest):
 
     # Import a CSV file
     df = pd.read_csv(csv.PATH_URL)
