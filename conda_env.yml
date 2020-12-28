@@ -10,6 +10,7 @@ dependencies:
   - ipython
   - jupyter
   - click
+  - rich
   - pip
   - pip:
       - rich
