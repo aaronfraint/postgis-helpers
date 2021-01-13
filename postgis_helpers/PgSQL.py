@@ -349,18 +349,14 @@ class PostgreSQL:
         self._print(1, "... executing ...")
 
         if len(query) < 5000:
-            code_w_highlight = RichSyntax(
-                query, "sql", theme="monokai", line_numbers=True
-            )
+            code_w_highlight = RichSyntax(query, "sql", theme="monokai", line_numbers=True)
             self._print(1, code_w_highlight)
 
         uri = self.uri(super_uri=autocommit)
 
         connection = psycopg2.connect(uri)
         if autocommit:
-            connection.set_isolation_level(
-                psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT
-            )
+            connection.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
 
         cursor = connection.cursor()
 
@@ -396,9 +392,7 @@ class PostgreSQL:
             pw = self.PASSWORD
             database = self.DATABASE
 
-        connection_string = (
-            f"postgresql://{user}:{pw}@{self.HOST}:{self.PORT}/{database}"
-        )
+        connection_string = f"postgresql://{user}:{pw}@{self.HOST}:{self.PORT}/{database}"
 
         if self.SSLMODE:
             connection_string += f"?sslmode={self.SSLMODE}"
@@ -492,9 +486,7 @@ class PostgreSQL:
         return sql_file
 
     @timer
-    def db_load_pgdump_file(
-        self, sql_dump_filepath: Path, overwrite: bool = True
-    ) -> None:
+    def db_load_pgdump_file(self, sql_dump_filepath: Path, overwrite: bool = True) -> None:
         """
         Populate the database by loading from a SQL file that
         was previously created by ``pg_dump``.
@@ -773,9 +765,7 @@ class PostgreSQL:
 
         df = self.query_as_df(f"SELECT * FROM {schema}.{src_table};")
 
-        gdf = spatialize_point_dataframe(
-            df, x_lon_col=x_lon_col, y_lat_col=y_lat_col, epsg=epsg
-        )
+        gdf = spatialize_point_dataframe(df, x_lon_col=x_lon_col, y_lat_col=y_lat_col, epsg=epsg)
 
         self.import_geodataframe(gdf, new_table, if_exists=if_exists)
 
@@ -1133,7 +1123,7 @@ class PostgreSQL:
         if not schema:
             schema = self.ACTIVE_SCHEMA
 
-        self._print(2, "Exporting {schema}.{table_name} to shapefile")
+        self._print(2, f"Exporting {schema}.{table_name} to shapefile")
 
         query = f"SELECT * FROM {schema}.{table_name} "
 
@@ -1229,18 +1219,14 @@ class PostgreSQL:
         # Finish the command by adding the DB and table names
         cmd += f" {self.DATABASE} {table_name}"
 
-        subprocess.call(
-            cmd, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL
-        )
+        subprocess.call(cmd, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
         self._print(2, cmd)
         self._print(2, f"Exported {table_name} to {output_file}")
 
         return output_folder / f"{table_name}.shp"
 
-    def shp2pgsql(
-        self, table_name: str, src_shapefile: Path, new_epsg: int = None
-    ) -> str:
+    def shp2pgsql(self, table_name: str, src_shapefile: Path, new_epsg: int = None) -> str:
         """
         TODO: Docstring
         TODO: add schema option
